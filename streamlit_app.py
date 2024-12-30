@@ -22,8 +22,8 @@ st.title("POSTECH 25학번 입학을 환영합니다!")
 # 모델 선택 라디오 버튼
 model_choice = st.sidebar.radio(
     "모델 선택",
-    ["GPT", "DeepSeek"],
-    captions=["OpenAI GPT 모델", "DeepSeek 모델"]
+    ["DeepSeek", "GPT"],
+    captions=["DeepSeek-v3", "gpt-4o-mini (비추천)"]
 )
 
 # RAG 옵션 추가 (예: 체크박스)
