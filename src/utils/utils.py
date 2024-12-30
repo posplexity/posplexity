@@ -1,5 +1,6 @@
 import os
 import requests
+import asyncio
 from urllib.parse import urlparse
 from typing import Optional
 
@@ -49,3 +50,23 @@ def download_file(url: str, save_dir: Optional[str] = None, default_filename: st
         raise Exception(f"파일 다운로드 실패: {str(e)}")
     except OSError as e:
         raise Exception(f"파일 저장 실패: {str(e)}")
+    
+
+
+async def async_wrapper(tasks: list) -> list:
+    """
+    여러 비동기 작업을 비동기 함수 내에서 실행하는 함수입니다.
+
+    Args:
+        tasks (List[Coroutine]): 실행할 비동기 작업의 리스트
+
+    Returns:
+        list: 모든 비동기 작업의 결과를 포함한 리스트
+    """
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        # 이미 실행 중인 이벤트 루프가 있는 경우
+        return await asyncio.gather(*tasks)
+    else:
+        # 새로운 이벤트 루프를 생성하는 경우
+        return asyncio.run(asyncio.gather(*tasks))

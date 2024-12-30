@@ -6,7 +6,7 @@ import requests, openai, os, json, base64
 
 load_dotenv()
 
-prompt_base_path = "src/gpt/prompt"
+prompt_base_path = "src/llm/gpt/prompt"
 client = openai.AsyncOpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
 )
