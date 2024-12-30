@@ -6,8 +6,8 @@ from src.llm.gpt.inference import async_run_gpt
 from src.utils.utils import async_wrapper
 from common.types import str_struct
 
-
-import os, re, docx, pdfplumber, asyncio
+from PIL import Image
+import os, re, docx, pdfplumber, asyncio, io
 
 
 def parse_word(file_path: str) -> Dict[str, Any]:
@@ -54,17 +54,18 @@ def parse_word(file_path: str) -> Dict[str, Any]:
     }
     return parsed_dict
 
+
 def parse_pdf(file_path: str) -> Dict[str, Any]:
     """
     PDF 문서를 파싱하여 title, source, raw_text를 추출하는 함수.
     - 첫 줄이 URL인 경우만 출처로 사용, 아니면 파일명을 출처로 사용
     - 모든 텍스트는 하나의 문자열로 합침
-    - 이미지가 존재하면 run_gpt()를 호출해 <IMAGE_DESC: ...> 형태로 삽입
+    - 이미지(바이너리)는 전혀 포함하지 않음 (스킵)
     """
     filename = os.path.basename(file_path)
     full_text = []
     first_line = True
-    source = None  # URL일 수도, 아닐 수도 있음
+    source = None
 
     with pdfplumber.open(file_path) as pdf:
         for page_index, page in enumerate(pdf.pages):
@@ -75,14 +76,11 @@ def parse_pdf(file_path: str) -> Dict[str, Any]:
                 for line in lines:
                     cleaned_line = " ".join(line.strip().split())
                     if cleaned_line:
-                        # 첫 유효 텍스트가 URL인지 확인
                         if first_line:
                             first_line = False
                             if cleaned_line.startswith(('http://', 'https://')):
-                                # 첫 줄이 URL이면 출처로 사용
                                 source = cleaned_line
                                 continue
-                            # URL 아니면 텍스트로 처리
                             cleaned_line = re.sub(r"[^0-9A-Za-z가-힣\s.,!?\-()]", "", cleaned_line)
                             if cleaned_line:
                                 full_text.append(cleaned_line)
@@ -91,28 +89,34 @@ def parse_pdf(file_path: str) -> Dict[str, Any]:
                             if cleaned_line:
                                 full_text.append(cleaned_line)
 
-            # 2) 이미지 확인 & GPT 호출
-            if page.images:
-                # 페이지에 이미지가 하나 이상 있으면
-                for img in page.images:
-                    async_task = []
-                    breakpoint()
-                    async_task.append(
-                        async_run_gpt(
-                            target_prompt="",
-                            prompt_in_path="parse_image.json",
-                            output_structure=str_struct,
-                            img_in_data=img,
-                            gpt_model="gpt-4o-2024-08-06"
-                        )
-                    )
 
-                results = asyncio.run(async_wrapper(async_task))
-                breakpoint()
-                image_desc = run_gpt()
-                breakpoint()
-                # <IMAGE_DESC: ...> 형태로 넣기
-                full_text.append(f"<IMAGE_DESC: {image_desc}>")
+            # 2) 이미지 확인 & GPT 호출
+            # if page.images:
+            #     # TODO : 이미지 처리 코드 완성
+            #     """
+            #     image init 과정의 완성도가 떨어져, MVP 제작 이후 개선할 예정
+            #     """
+            #     async_task = []
+            #     for img in page.images:
+            #         # image 변환
+            #         image_bytes = img.get('stream').get_data()
+            #         image = Image.open(io.BytesIO(image_bytes))
+                    
+            #         async_task.append(
+            #             async_run_gpt(
+            #                 target_prompt="",
+            #                 prompt_in_path="parse_image.json",
+            #                 output_structure=str_struct,
+            #                 img_in_data=image,
+            #                 gpt_model="gpt-4o-2024-08-06"
+            #             )
+            #         )
+            #     results = asyncio.run(async_wrapper(async_task))
+            #     # <IMAGE_DESC: ...> 형태로 넣기
+            #     full_text.append(f"<IMAGE_DESC: {results[0].output}>")
+            #     breakpoint()
+
+            full_text.append(f"<PAGE_BREAK: {page_index}>")
 
     parsed_dict = {
         "doc_title": filename,

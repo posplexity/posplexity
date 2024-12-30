@@ -118,11 +118,10 @@ async def async_run_gpt(
             {"role": "user", "content": input_content},
         ],
         response_format=output_structure,
-        logprobs=True
     )
     chat_output = chat_completion.choices[0].message.parsed
 
-    return chat_output, chat_completion
+    return chat_output#, chat_completion
 
 async def run_gpt_stream(
     target_prompt: str,

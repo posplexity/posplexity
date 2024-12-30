@@ -1,6 +1,6 @@
 import requests, openai, tiktoken, os, json, base64, time
 
-prompt_base_path = "src/deepseek/prompt"
+prompt_base_path = "src/llm/deepseek/prompt"
 client = openai.AsyncOpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com/v1",
