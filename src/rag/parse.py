@@ -55,12 +55,18 @@ def parse_word(file_path: str) -> Dict[str, Any]:
     return parsed_dict
 
 
+import os
+import re
+import pdfplumber
+from typing import Dict, Any
+# from PIL import Image   # 필요 없다면 임포트 제거
+
 def parse_pdf(file_path: str) -> Dict[str, Any]:
     """
     PDF 문서를 파싱하여 title, source, raw_text를 추출하는 함수.
     - 첫 줄이 URL인 경우만 출처로 사용, 아니면 파일명을 출처로 사용
     - 모든 텍스트는 하나의 문자열로 합침
-    - 이미지(바이너리)는 전혀 포함하지 않음 (스킵)
+    - 이미지와 관련된 코드 구조는 유지하되, 실제 바이너리는 저장하지 않음
     """
     filename = os.path.basename(file_path)
     full_text = []
@@ -69,13 +75,14 @@ def parse_pdf(file_path: str) -> Dict[str, Any]:
 
     with pdfplumber.open(file_path) as pdf:
         for page_index, page in enumerate(pdf.pages):
-            # 1) 텍스트 추출
+            # (1) 텍스트 추출
             page_text = page.extract_text()
             if page_text:
                 lines = page_text.split('\n')
                 for line in lines:
                     cleaned_line = " ".join(line.strip().split())
                     if cleaned_line:
+                        # 첫 유효 텍스트가 URL인지 확인
                         if first_line:
                             first_line = False
                             if cleaned_line.startswith(('http://', 'https://')):
@@ -89,38 +96,40 @@ def parse_pdf(file_path: str) -> Dict[str, Any]:
                             if cleaned_line:
                                 full_text.append(cleaned_line)
 
+            # (2) 이미지 처리 구조는 남겨두지만, 실제 바이너리/설명은 스킵
+            if page.images:
+                # 예) 간단히 "<IMAGE>"라는 토큰만 삽입
+                # (MVP 단계에서 이미지 바이너리, GPT 호출 등은 전부 스킵)
+                full_text.append("<IMAGE>")
 
-            # 2) 이미지 확인 & GPT 호출
-            # if page.images:
-            #     # TODO : 이미지 처리 코드 완성
-            #     """
-            #     image init 과정의 완성도가 떨어져, MVP 제작 이후 개선할 예정
-            #     """
-            #     async_task = []
-            #     for img in page.images:
-            #         # image 변환
-            #         image_bytes = img.get('stream').get_data()
-            #         image = Image.open(io.BytesIO(image_bytes))
+                """
+                # 미래에 이미지 처리를 추가하고 싶다면:
+                async_task = []
+                for img in page.images:
+                    # 만약 이미지 분석을 하려면:
+                    # image_bytes = img.get('stream').get_data()
+                    # image = Image.open(io.BytesIO(image_bytes))
                     
-            #         async_task.append(
-            #             async_run_gpt(
-            #                 target_prompt="",
-            #                 prompt_in_path="parse_image.json",
-            #                 output_structure=str_struct,
-            #                 img_in_data=image,
-            #                 gpt_model="gpt-4o-2024-08-06"
-            #             )
-            #         )
-            #     results = asyncio.run(async_wrapper(async_task))
-            #     # <IMAGE_DESC: ...> 형태로 넣기
-            #     full_text.append(f"<IMAGE_DESC: {results[0].output}>")
-            #     breakpoint()
+                    # async_task.append(
+                    #     async_run_gpt(
+                    #         target_prompt="",
+                    #         prompt_in_path="parse_image.json",
+                    #         output_structure=str_struct,
+                    #         img_in_data=image,
+                    #         gpt_model="gpt-4o-2024-08-06"
+                    #     )
+                    # )
+                # results = asyncio.run(async_wrapper(async_task))
+                # # <IMAGE_DESC: ...> 형태로 넣기
+                # full_text.append(f"<IMAGE_DESC: {results[0].output}>")
+                """
 
+            # (3) 페이지 구분 (원치 않으면 제거 가능)
             full_text.append(f"<PAGE_BREAK: {page_index}>")
 
     parsed_dict = {
         "doc_title": filename,
-        "doc_source": source if source else filename,  # URL 없으면 파일명
+        "doc_source": source if source else filename,  # URL이 없으면 파일명
         "raw_text": " ".join(full_text),
         "chunk_list": []  # (필요하다면 나중에 청크로 쪼개 사용)
     }

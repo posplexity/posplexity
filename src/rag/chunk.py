@@ -70,34 +70,3 @@ def chunk_pdf(parsed_dict: Dict[str, Any], chunk_size: int = DEFAULT_CHUNK_SIZE,
     
     chunk_list = [Chunk(doc_id=parsed_dict.doc_id, chunk_id=idx, body=chunk) for idx, chunk in enumerate(chunks)]
     return chunk_list
-
-# 예제 사용법
-if __name__ == "__main__":
-    # 예제 parse_word 데이터
-    word_parsed = {
-        "doc_title": "example.docx",
-        "doc_source": "http://example.com",
-        "raw_text": "여기에 Word 문서의 전체 텍스트가 들어갑니다. 예시 텍스트입니다. 더 많은 텍스트를 추가하세요." * 100,  # 예시 텍스트
-        "chunk_list": []
-    }
-    
-    chunk_word(word_parsed)
-    print("Word 청크 결과:")
-    for idx, chunk in enumerate(word_parsed["chunk_list"], start=1):
-        print(f"Chunk {idx}: {chunk}\n")
-    
-    # 예제 parse_pdf 데이터
-    pdf_parsed = {
-        "doc_title": "example.pdf",
-        "doc_source": "http://example.com",
-        "raw_text": ("여기에 PDF 문서의 첫 페이지 텍스트가 들어갑니다. 예시 텍스트입니다. " * 50 +
-                     "<PAGE_BREAK: 1>" +
-                     "여기에 두 번째 페이지의 텍스트가 들어갑니다. 또 다른 예시 텍스트입니다. " * 50 +
-                     "<PAGE_BREAK: 2>"),
-        "chunk_list": []
-    }
-    
-    chunk_pdf(pdf_parsed)
-    print("PDF 청크 결과:")
-    for idx, chunk in enumerate(pdf_parsed["chunk_list"], start=1):
-        print(f"Chunk {idx}: {chunk}\n")
