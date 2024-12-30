@@ -12,8 +12,15 @@ except RuntimeError:
     asyncio.set_event_loop(loop)
 
 # Streamlit 설정
-st.set_page_config(page_title="DeepSeek 챗봇", layout="wide")
-st.title("DeepSeek 챗봇")
+st.set_page_config(page_title="Posplexity", layout="wide")
+st.title("POSTECH 25학번 입학을 환영합니다!")
+
+# 모델 선택 라디오 버튼 추가
+model_choice = st.sidebar.radio(
+    "모델 선택",
+    ["GPT", "DeepSeek"],
+    captions=["OpenAI GPT 모델", "DeepSeek 모델"]
+)
 
 # 세션 상태 초기화
 if "messages" not in st.session_state:
@@ -36,18 +43,26 @@ if prompt := st.chat_input("메시지를 입력하세요"):
         message_placeholder = st.empty()
 
         async def get_response():
-            stream = await run_gpt_stream(
-                target_prompt=prompt,
-                prompt_in_path="chat_basic.json"
-            )
-            full_response = ""
-            async for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
-                    full_response += chunk.choices[0].delta.content
-                    message_placeholder.markdown(full_response)
-            
-            # 응답이 완료된 후 2초 대기
-            return full_response
+            try:
+                if model_choice == "GPT":
+                    stream = await run_gpt_stream(
+                        target_prompt=prompt,
+                        prompt_in_path="chat_basic.json"
+                    )
+                else:  # DeepSeek
+                    stream = await run_deepseek_stream(
+                        target_prompt=prompt,
+                        prompt_in_path="chat_basic.json"
+                    )
+                
+                full_response = ""
+                async for chunk in stream:
+                    if chunk.choices[0].delta.content is not None:
+                        full_response += chunk.choices[0].delta.content
+                        message_placeholder.markdown(full_response)
+                return full_response
+            except Exception as e:
+                raise Exception(f"응답 생성 중 오류 발생: {str(e)}")
 
         try:
             with st.spinner("응답 생성 중..."):
