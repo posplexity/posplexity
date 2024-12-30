@@ -2,8 +2,8 @@
 import streamlit as st
 import asyncio
 import os
-from src.deepseek.inference import run_deepseek_stream
-from src.gpt.inference import run_gpt_stream
+from src.llm.deepseek.inference import run_deepseek_stream
+from src.llm.gpt.inference import run_gpt_stream
 
 try:
     loop = asyncio.get_event_loop()
