@@ -1,12 +1,11 @@
-from src.llm.deepseek.inference import run_deepseek_stream
-from src.llm.gpt.inference import run_gpt_stream
+from src.llm.deepseek.inference import run_deepseek_stream, run_deepseek
+from src.llm.gpt.inference import run_gpt
 from src.search.search import search 
-
+from src.utils.utils import async_wrapper
 import streamlit as st
 import streamlit.components.v1 as components
 import asyncio, json
-
-
+from common.types import intlist_struct
 try:
     loop = asyncio.get_event_loop()
 except RuntimeError:
@@ -14,7 +13,6 @@ except RuntimeError:
     asyncio.set_event_loop(loop)
 
 name_source_mapping = json.load(open("data/mapping.json", "r"))
-
 
 def setup_sidebar():
     """
@@ -40,7 +38,7 @@ def setup_sidebar():
         example_questions = [
             "밥약이 무슨 뜻인가요?",
             "새터 기간동안 술을 마셔도 괜찮나요?",
-            "포스텍 밴드 동아리에는 어떤게 있나요?",
+            "야구를 좋아하는데, 어떤 동아리에 들어가는게 좋을까요?",
         ]
         for question in example_questions:
             if st.button(question):
@@ -129,26 +127,52 @@ if prompt:
         async def get_response():
             """
             사용자 질의를 받아서,
-            1. RAG 검색
-            2. 이전 대화 히스토리 + RAG 컨텍스트 -> LLM에 전달 (스트리밍)
-            3. 스트리밍 결과 반환
+            1. RAG 검색 (top_k=20)
+            2. LLM Re-ranking -> 상위 ID 추출
+            3. 최종 RAG 컨텍스트를 생성해 답변 (스트리밍)
             """
             try:
+                # (1) 대화 히스토리 정리
                 history_text = ""
-                # 마지막(현재 발화한 user 메시지)은 제외하고 합침
                 for msg in st.session_state.messages[:-1]:
                     if msg["role"] == "user":
                         history_text += f"User: {msg['content']}\n"
                     elif msg["role"] == "assistant":
                         history_text += f"Assistant: {msg['content']}\n"
-                
-                # 1. RAG 검색
+
+                # (2) RAG 검색
                 found_chunks = []
                 with st.spinner("문서를 조회 중입니다..."):
-                    found_chunks = search(prompt, top_k=5, dev=False)  # Qdrant 벡터 검색
-                
-                # 2-1. 검색된 청크들을 합쳐 최종 Prompt 구성
-                context_texts = [c["raw_text"] for c in found_chunks]
+                    found_chunks = search(prompt, top_k=20, dev=False)
+
+                # (3) Re-ranking
+                # 각 청크: c["id"], c["doc_title"], c["raw_text"], c["doc_source"], c["page_num"] ...
+                # 3-1. (id, text_summary) 형태의 딕셔너리 구성
+                chunk_dict = {
+                    c["id"]: (c["doc_title"], c["summary"])
+                    for c in found_chunks
+                }
+
+                # 3-2. Re-ranking을 위해 LLM 호출 (스피너 추가)
+                with st.spinner("문서를 재정렬 중입니다..."):
+                    reranked_chunks = run_gpt(
+                        target_prompt=str(chunk_dict),       # LLM에 넘길 문자열 (id -> title & 요약)
+                        prompt_in_path="reranking.json",     # reranking를 수행하는 JSON prompt
+                        gpt_model="gpt-4o-2024-08-06",
+                        output_structure=intlist_struct
+                    )
+
+                reranked_ids = reranked_chunks.output
+
+                # (4) re-ranked된 id에 해당하는 청크만 추출
+                filtered_chunks = [c for c in found_chunks if c["id"] in reranked_ids]
+
+                # (4-1) re-ranked 리스트 순서 유지 위해 id -> index 매핑
+                id_to_rank = {id_: idx for idx, id_ in enumerate(reranked_ids)}
+                sorted_chunks = sorted(filtered_chunks, key=lambda x: id_to_rank[x["id"]])
+
+                # (4-2) 최종 RAG 컨텍스트 구성
+                context_texts = [c["raw_text"] for c in sorted_chunks]
                 rag_context = "\n".join(context_texts)
                 final_prompt = f"""
 아래는 이전 대화의 기록입니다:
@@ -165,25 +189,25 @@ if prompt:
 답변:
 """
 
-                # 2-2. LLM에 프롬프트 전달 (스트리밍)
+                # (5) 최종 답변 (스트리밍)
                 stream = await run_deepseek_stream(
                     target_prompt=final_prompt,
                     prompt_in_path="chat_basic.json"
                 )
-                
-                # 3. 스트리밍 결과 처리
+
                 full_response = ""
                 async for chunk in stream:
                     if chunk.choices[0].delta.content is not None:
                         full_response += chunk.choices[0].delta.content
                         message_placeholder.markdown(full_response)
 
-                # 출처 표시
-                if found_chunks:
+                # (6) 출처 표시 - 최종 사용된 sorted_chunks 기준
+                if sorted_chunks:
                     dedup_set = set()
-                    for c in found_chunks:
+                    for c in sorted_chunks:
                         doc_title = c.get("doc_title", "Untitled")
                         doc_source = c.get("doc_source", "Unknown Source")
+                        # name_source_mapping에서 매핑
                         if not doc_source.startswith("http"):
                             doc_source = name_source_mapping.get(doc_title, doc_source)
                         page_num = c.get("page_num", None)
@@ -191,9 +215,7 @@ if prompt:
 
                     refs = []
                     for idx, (title, source, page) in enumerate(dedup_set, start=1):
-                        print(source)
                         if source.startswith("http"):
-                            print("startswith")
                             if page is not None:
                                 refs.append(f"- **{title}** (p.{page}) / [링크로 이동]({source})")
                             else:
@@ -203,7 +225,7 @@ if prompt:
                                 refs.append(f"- **{title}** (p.{page}) / {source}")
                             else:
                                 refs.append(f"- **{title}** / {source}")
-                    
+
                     refs_text = "\n".join(refs)
                     reference_placeholder.markdown(
                         f"---\n**참고 자료 출처**\n\n{refs_text}\n"

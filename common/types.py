@@ -6,6 +6,7 @@ class Chunk(BaseModel):
     chunk_id: int
     body: str
     embedding: list[float] = []
+    summary: str=""
 
 class Document(BaseModel):
     doc_id: int = -1
@@ -18,3 +19,6 @@ class Document(BaseModel):
 
 class str_struct(BaseModel):
     output: str
+
+class intlist_struct(BaseModel):
+    output: list[int]

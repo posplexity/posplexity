@@ -7,10 +7,13 @@ import requests, openai, os, json, base64
 load_dotenv()
 
 prompt_base_path = "src/llm/gpt/prompt"
-client = openai.AsyncOpenAI(
+async_client = openai.AsyncOpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
 )
 
+client = openai.OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+)
 
 def encode_image(image_source):
     """
@@ -59,6 +62,61 @@ def encode_image(image_source):
         raise ValueError(f"Failed to process the image file: {e}")
     except ValueError as e:
         raise ValueError(e)
+    
+
+
+def run_gpt(
+    target_prompt: str,
+    prompt_in_path: str,
+    output_structure,
+    img_in_data: str = None,
+    img_resolution: str = "high",
+    gpt_model: str = "gpt-4o-mini",
+) -> str:
+    """
+    이미지+텍스트 데이터에 대해 gpt 모델을 사용합니다.
+    structured, step 등 beta 기능을 적용한 코드입니다.
+    """
+    with open(
+        os.path.join(prompt_base_path, prompt_in_path), "r", encoding="utf-8"
+    ) as file:
+        prompt_dict = json.load(file)
+
+    system_prompt = prompt_dict["system_prompt"]
+    user_prompt_head, user_prompt_tail = (
+        prompt_dict["user_prompt"]["head"],
+        prompt_dict["user_prompt"]["tail"],
+    )
+
+    user_prompt_text = "\n".join([user_prompt_head, target_prompt, user_prompt_tail])
+
+    input_content = [{"type": "text", "text": user_prompt_text}]
+
+    if img_in_data is not None:
+        encoded_image = encode_image(img_in_data)
+        input_content.append(
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{encoded_image}",
+                    "detail": img_resolution,
+                },
+            }
+        )
+
+    chat_completion = client.beta.chat.completions.parse(
+        model=gpt_model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": input_content},
+        ],
+        response_format=output_structure,
+    )
+    chat_output = chat_completion.choices[0].message.parsed
+
+    return chat_output#, chat_completion
+
+
 
 
 async def async_run_gpt(
@@ -100,7 +158,7 @@ async def async_run_gpt(
             }
         )
 
-    chat_completion = await client.beta.chat.completions.parse(
+    chat_completion = await async_client.beta.chat.completions.parse(
         model=gpt_model,
         messages=[
             {"role": "system", "content": system_prompt},
@@ -111,6 +169,7 @@ async def async_run_gpt(
     chat_output = chat_completion.choices[0].message.parsed
 
     return chat_output#, chat_completion
+
 
 async def run_gpt_stream(
     target_prompt: str,
@@ -149,7 +208,7 @@ async def run_gpt_stream(
             }
         )
 
-    stream = await client.chat.completions.create(
+    stream = await async_client.chat.completions.create(
         model=gpt_model,
         messages=[
             {"role": "system", "content": system_prompt},

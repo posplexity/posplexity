@@ -39,5 +39,6 @@ def search(user_query: str, top_k: int = 5, dev:bool=True) -> List[Dict[str, Any
             "doc_title": r.payload.get("doc_title"),
             "doc_source": r.payload.get("doc_source"),
             "raw_text": r.payload.get("raw_text"),
+            "summary": r.payload.get("summary")["output"],
         })
     return found_chunks
