@@ -1,11 +1,12 @@
 from src.llm.deepseek.inference import run_deepseek_stream, run_deepseek
 from src.llm.gpt.inference import run_gpt
-from src.search.search import search 
+from src.search.search import search
 from src.utils.utils import async_wrapper
 import streamlit as st
 import streamlit.components.v1 as components
 import asyncio, json
-from common.types import intlist_struct
+from common.types import intlist_struct, str_struct
+
 try:
     loop = asyncio.get_event_loop()
 except RuntimeError:
@@ -13,6 +14,7 @@ except RuntimeError:
     asyncio.set_event_loop(loop)
 
 name_source_mapping = json.load(open("data/mapping.json", "r"))
+
 
 def setup_sidebar():
     """
@@ -118,7 +120,7 @@ if prompt:
     with st.chat_message("user"):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
-
+    
     # 2. 챗봇 응답 (LLM 호출)
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
@@ -127,12 +129,23 @@ if prompt:
         async def get_response():
             """
             사용자 질의를 받아서,
-            1. RAG 검색 (top_k=20)
-            2. LLM Re-ranking -> 상위 ID 추출
-            3. 최종 RAG 컨텍스트를 생성해 답변 (스트리밍)
+            1. Query Refinement
+            2. RAG 검색 (top_k=20)
+            3. LLM Re-ranking -> 상위 ID 추출
+            4. 최종 RAG 컨텍스트를 생성해 답변 (스트리밍)
             """
             try:
-                # (1) 대화 히스토리 정리
+                # (1) Query Refinement
+                with st.spinner("질의를 정제 중입니다..."):
+                    refinement = run_gpt(
+                        target_prompt=str(prompt),
+                        prompt_in_path="query_refinement.json",
+                        gpt_model="gpt-4o-mini",
+                        output_structure=str_struct
+                    )
+                refined_prompt = refinement.output
+
+                # (2) 대화 히스토리 정리
                 history_text = ""
                 for msg in st.session_state.messages[:-1]:
                     if msg["role"] == "user":
@@ -140,38 +153,36 @@ if prompt:
                     elif msg["role"] == "assistant":
                         history_text += f"Assistant: {msg['content']}\n"
 
-                # (2) RAG 검색
+                # (3) RAG 검색
                 found_chunks = []
                 with st.spinner("문서를 조회 중입니다..."):
-                    found_chunks = search(prompt, top_k=20, dev=False)
+                    found_chunks = search(refined_prompt, top_k=20, dev=False)
 
-                # (3) Re-ranking
-                # 각 청크: c["id"], c["doc_title"], c["raw_text"], c["doc_source"], c["page_num"] ...
-                # 3-1. (id, text_summary) 형태의 딕셔너리 구성
+                # (4) Re-ranking
+                # (id, text_summary) 형태의 딕셔너리 구성
                 chunk_dict = {
                     c["id"]: (c["doc_title"], c["summary"])
                     for c in found_chunks
                 }
 
-                # 3-2. Re-ranking을 위해 LLM 호출 (스피너 추가)
                 with st.spinner("문서를 재정렬 중입니다..."):
-                    reranked_chunks = run_gpt(
+                    reranked_output = run_gpt(
                         target_prompt=str(chunk_dict),       # LLM에 넘길 문자열 (id -> title & 요약)
-                        prompt_in_path="reranking.json",     # reranking를 수행하는 JSON prompt
+                        prompt_in_path="reranking.json",     # reranking 수행 JSON 프롬프트
                         gpt_model="gpt-4o-2024-08-06",
                         output_structure=intlist_struct
                     )
 
-                reranked_ids = reranked_chunks.output
+                reranked_ids = reranked_output.output
 
-                # (4) re-ranked된 id에 해당하는 청크만 추출
+                # (5) re-ranked된 id에 해당하는 청크만 추출
                 filtered_chunks = [c for c in found_chunks if c["id"] in reranked_ids]
 
-                # (4-1) re-ranked 리스트 순서 유지 위해 id -> index 매핑
+                # re-ranked 리스트 순서 유지 위해 id -> index 매핑
                 id_to_rank = {id_: idx for idx, id_ in enumerate(reranked_ids)}
                 sorted_chunks = sorted(filtered_chunks, key=lambda x: id_to_rank[x["id"]])
 
-                # (4-2) 최종 RAG 컨텍스트 구성
+                # (6) 최종 RAG 컨텍스트 구성
                 context_texts = [c["raw_text"] for c in sorted_chunks]
                 rag_context = "\n".join(context_texts)
                 final_prompt = f"""
@@ -183,13 +194,13 @@ if prompt:
 
 이제 사용자의 질문을 다시 안내해 드리겠습니다:
 
-질문: {prompt}
+질문: {refined_prompt}
 
 위 대화와 자료를 기반으로 답변을 작성해 주세요.
 답변:
 """
 
-                # (5) 최종 답변 (스트리밍)
+                # (7) 최종 답변 (스트리밍)
                 stream = await run_deepseek_stream(
                     target_prompt=final_prompt,
                     prompt_in_path="chat_basic.json"
@@ -201,7 +212,7 @@ if prompt:
                         full_response += chunk.choices[0].delta.content
                         message_placeholder.markdown(full_response)
 
-                # (6) 출처 표시 - 최종 사용된 sorted_chunks 기준
+                # (8) 출처 표시 - 최종 사용된 sorted_chunks 기준
                 if sorted_chunks:
                     dedup_set = set()
                     for c in sorted_chunks:
