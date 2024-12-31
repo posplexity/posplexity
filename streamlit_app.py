@@ -8,6 +8,7 @@ from src.llm.deepseek.inference import run_deepseek_stream
 from src.llm.gpt.inference import run_gpt_stream
 from src.search.search import search  # Qdrant 벡터 검색 함수
 
+
 try:
     loop = asyncio.get_event_loop()
 except RuntimeError:
@@ -27,10 +28,16 @@ def setup_sidebar():
     ########################################
     # (1) 사이드바 최상단 로고 표시
     ########################################
-    st.sidebar.image(
-        "assets/postech_logo.svg",
-        use_column_width=True
-    )
+    try:
+        st.sidebar.image(
+            "assets/postech_logo.svg",
+            use_container_width=True
+        )
+    except:
+        st.sidebar.image(
+            "assets/postech_logo.svg",
+            use_column_width=True
+        )
     # --------------------------------------
 
     st.sidebar.markdown("""

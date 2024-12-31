@@ -7,22 +7,21 @@ from qdrant_client.models import PointStruct
 
 from common.types import Document, Chunk
 from common.globals import qdrant_client
-from common.config import COLLECTION_NAME
+from common.config import COLLECTION_NAME, MAX_CHUNK_LENGTH, EMBED_BATCH_SIZE
 
 from src.rag.parse import parse_word, parse_pdf
 from src.rag.chunk import chunk_word, chunk_pdf
 from src.rag.embedding import async_openai_embedding  # 비동기 임베딩 함수
 from src.utils.utils import async_wrapper  # async_wrapper(tasks) -> asyncio.gather
 
-# 최대 저장할 청크 텍스트 길이 제한 (문자 수)
-MAX_CHUNK_LENGTH = 1000
 
 def init(db_path: str):
     # 1. recreate_collection
     qdrant_client.recreate_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=models.VectorParams(
-            size=3072, distance=models.Distance.COSINE
+            size=3072, 
+            distance=models.Distance.COSINE
         ),
     )
 
@@ -51,40 +50,37 @@ def init(db_path: str):
             doc.chunk_list = chunk_pdf(doc)
 
     # 5. 임베딩 비동기 병렬 처리 + 업서트
+    #    -> doc_chunk_pairs = [(doc, chunk), ...] 생성
     doc_chunk_pairs = []
     for doc in docs_list:
         for chunk in doc.chunk_list:
             doc_chunk_pairs.append((doc, chunk))
 
     total_chunks = len(doc_chunk_pairs)
-    EMBED_BATCH_SIZE = 50  # 50개씩 나눠서 병렬 처리
 
-    points = []
+    # tqdm 설정
     with tqdm(total=total_chunks, desc="Making embeddings...") as pbar:
-        for i in range(0, total_chunks, EMBED_BATCH_SIZE):
-            batch = doc_chunk_pairs[i : i + EMBED_BATCH_SIZE]
+        # 한 번에 EMBED_BATCH_SIZE 만큼 임베딩 + 업서트
+        for start_idx in range(0, total_chunks, EMBED_BATCH_SIZE):
+            batch = doc_chunk_pairs[start_idx : start_idx + EMBED_BATCH_SIZE]
 
-            # 비동기 임베딩 요청
+            # (a) 비동기 임베딩
             tasks = [async_openai_embedding(chunk.body) for (_, chunk) in batch]
             results = asyncio.run(async_wrapper(tasks))  # [embedding, ...]
 
-            # 결과를 청크에 반영
+            # (b) batch_points 리스트 생성 (이번 배치에 해당하는 points)
+            batch_points = []
             for (doc, chunk), emb in zip(batch, results):
                 chunk.embedding = emb
-
-                # 최대 길이 제한
                 limited_text = chunk.body[:MAX_CHUNK_LENGTH]
 
-                # doc_source가 너무 길면 간단히 처리 (예: 파일명만)
                 point_id = doc.doc_id * 1000 + chunk.chunk_id
-
                 payload_data = {
                     "doc_title": doc.doc_title[:100],  # 너무 길면 100자만
-                    "doc_source": doc.doc_source,         # 긴 경로 대신 베이스네임
-                    "raw_text": limited_text            # 길이 제한된 청크 텍스트
+                    "doc_source": doc.doc_source,       # 혹은 os.path.basename(doc.doc_source)
+                    "raw_text": limited_text
                 }
-
-                points.append(
+                batch_points.append(
                     PointStruct(
                         id=point_id,
                         vector=chunk.embedding,
@@ -92,13 +88,29 @@ def init(db_path: str):
                     )
                 )
 
-            pbar.update(len(batch))
+            # (c) Qdrant 업서트
+            try:
+                qdrant_client.upsert(
+                    collection_name=COLLECTION_NAME,
+                    points=batch_points
+                )
+                # 업서트 성공 시, tqdm 진행도 갱신
+                pbar.update(len(batch_points))
 
-    # 6. Qdrant 업서트
-    qdrant_client.upsert(
-        collection_name=COLLECTION_NAME,
-        points=points
-    )
+            except:
+                # 전체 업서트가 실패하면 5개씩 잘라서 재시도
+                print(f"전체 업서트 실패. 5개씩 나눠서 시도합니다...")
+                for small_start_idx in range(0, len(batch_points), 5):
+                    small_batch = batch_points[small_start_idx : small_start_idx + 5]
+                    try:
+                        qdrant_client.upsert(
+                            collection_name=COLLECTION_NAME,
+                            points=small_batch
+                        )
+                        pbar.update(len(small_batch))
+                    except Exception as e:
+                        print(f"배치 {small_start_idx//5 + 1} 업서트 실패: {str(e)}")
+                        breakpoint()  # 필요 시 디버깅
 
 if __name__ == "__main__":
     init(db_path="db")
