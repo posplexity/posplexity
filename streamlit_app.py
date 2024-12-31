@@ -1,5 +1,5 @@
 from src.llm.deepseek.inference import run_deepseek_stream, run_deepseek
-from src.llm.gpt.inference import run_gpt
+from src.llm.gpt.inference import run_gpt_stream, run_gpt
 from src.search.search import search
 from src.utils.utils import async_wrapper
 import streamlit as st
@@ -15,21 +15,33 @@ except RuntimeError:
 
 name_source_mapping = json.load(open("data/mapping.json", "r"))
 
-
 def setup_sidebar():
     """
     사이드바 UI를 구성하고, 전역 변수에 모델 선택/옵션을 세팅한다.
     """
+    # posplexity 로고(상단)
     try:
         st.sidebar.image(
-            "data/assets/postech_logo.svg",
+            "data/assets/posplexity_light.png",
             use_container_width=True
         )
     except:
         st.sidebar.image(
-            "data/assets/postech_logo.svg",
+            "data/assets/posplexity_light.png",
             use_column_width=True
         )
+
+    # 포스텍 로고(하단)
+    # try:
+    #     st.sidebar.image(
+    #         "data/assets/postech_logo.svg",
+    #         use_container_width=True
+    #     )
+    # except:
+    #     st.sidebar.image(
+    #         "data/assets/postech_logo.svg",
+    #         use_column_width=True
+    #     )
 
     st.sidebar.markdown("""
     \n새내기 여러분의 궁금증을 해소하기 위해 관련 자료를 기반으로 답변을 제공하는 챗봇입니다.
@@ -159,7 +171,6 @@ if prompt:
                     found_chunks = search(refined_prompt, top_k=20, dev=False)
 
                 # (4) Re-ranking
-                # (id, text_summary) 형태의 딕셔너리 구성
                 chunk_dict = {
                     c["id"]: (c["doc_title"], c["summary"])
                     for c in found_chunks
@@ -167,22 +178,20 @@ if prompt:
 
                 with st.spinner("문서를 재정렬 중입니다..."):
                     reranked_output = run_gpt(
-                        target_prompt=str(chunk_dict),       # LLM에 넘길 문자열 (id -> title & 요약)
-                        prompt_in_path="reranking.json",     # reranking 수행 JSON 프롬프트
+                        target_prompt=str(chunk_dict),
+                        prompt_in_path="reranking.json",
                         gpt_model="gpt-4o-2024-08-06",
                         output_structure=intlist_struct
                     )
 
                 reranked_ids = reranked_output.output
 
-                # (5) re-ranked된 id에 해당하는 청크만 추출
                 filtered_chunks = [c for c in found_chunks if c["id"] in reranked_ids]
 
-                # re-ranked 리스트 순서 유지 위해 id -> index 매핑
                 id_to_rank = {id_: idx for idx, id_ in enumerate(reranked_ids)}
                 sorted_chunks = sorted(filtered_chunks, key=lambda x: id_to_rank[x["id"]])
 
-                # (6) 최종 RAG 컨텍스트 구성
+                # (5) 최종 RAG 컨텍스트 구성
                 context_texts = [c["raw_text"] for c in sorted_chunks]
                 rag_context = "\n".join(context_texts)
                 final_prompt = f"""
@@ -200,10 +209,15 @@ if prompt:
 답변:
 """
 
-                # (7) 최종 답변 (스트리밍)
+                # (6) 최종 답변 (스트리밍)
+                # stream = await run_gpt_stream(
+                #     target_prompt=final_prompt,
+                #     prompt_in_path="chat_basic.json",
+                #     gpt_model="gpt-4o-2024-08-06"
+                # )
                 stream = await run_deepseek_stream(
                     target_prompt=final_prompt,
-                    prompt_in_path="chat_basic.json"
+                    prompt_in_path="chat_basic.json",
                 )
 
                 full_response = ""
@@ -212,13 +226,12 @@ if prompt:
                         full_response += chunk.choices[0].delta.content
                         message_placeholder.markdown(full_response)
 
-                # (8) 출처 표시 - 최종 사용된 sorted_chunks 기준
+                # (7) 출처 표시
                 if sorted_chunks:
                     dedup_set = set()
                     for c in sorted_chunks:
                         doc_title = c.get("doc_title", "Untitled")
                         doc_source = c.get("doc_source", "Unknown Source")
-                        # name_source_mapping에서 매핑
                         if not doc_source.startswith("http"):
                             doc_source = name_source_mapping.get(doc_title, doc_source)
                         page_num = c.get("page_num", None)
