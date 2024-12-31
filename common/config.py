@@ -3,4 +3,5 @@ DEFAULT_CHUNK_STEP = 500
 MAX_CHUNK_LENGTH = 1000
 EMBED_BATCH_SIZE = 70 
 
-COLLECTION_NAME = "posplexity-demo"
+COLLECTION_NAME_EXP = "posplexity-demo-local"
+COLLECTION_NAME_PROD = "posplexity-demo"

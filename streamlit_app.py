@@ -1,12 +1,10 @@
-# streamlit_app.py
-import streamlit as st
-import asyncio
-import os
-import streamlit.components.v1 as components  # iFrame 임베드용
-
 from src.llm.deepseek.inference import run_deepseek_stream
 from src.llm.gpt.inference import run_gpt_stream
-from src.search.search import search  # Qdrant 벡터 검색 함수
+from src.search.search import search 
+
+import streamlit as st
+import streamlit.components.v1 as components
+import asyncio
 
 
 try:
@@ -15,19 +13,11 @@ except RuntimeError:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-# 전역 변수처럼 쓸 수 있도록 이곳에서 선언 (혹은 setup_sidebar에서 반환받아도 됨)
-model_choice = None
-use_rag = True
 
 def setup_sidebar():
     """
     사이드바 UI를 구성하고, 전역 변수에 모델 선택/옵션을 세팅한다.
     """
-    global model_choice, use_rag
-
-    ########################################
-    # (1) 사이드바 최상단 로고 표시
-    ########################################
     try:
         st.sidebar.image(
             "assets/postech_logo.svg",
@@ -38,7 +28,6 @@ def setup_sidebar():
             "assets/postech_logo.svg",
             use_column_width=True
         )
-    # --------------------------------------
 
     st.sidebar.markdown("""
     \n새내기들의 불편함을 최소화하기 위해, 근거자료를 기반으로 답변하는 챗봇을 제작하였습니다.
@@ -53,13 +42,11 @@ def setup_sidebar():
         ]
         for question in example_questions:
             if st.button(question):
-                # 질문을 세션에 저장, rerun 후 main에서 처리
                 st.session_state.pending_question = question
                 st.rerun()
 
     st.sidebar.divider()
 
-    # 문의하기
     with st.sidebar.expander("💬 문의하기", expanded=False):
         st.markdown("""
             ### Contact
@@ -67,7 +54,6 @@ def setup_sidebar():
             - cw.huh@postech.ac.kr
         """)
 
-    # 제작자
     with st.sidebar.expander("👨‍👩‍👦‍👦 제작자", expanded=False):
         st.markdown("""
             ### Contributers
@@ -77,20 +63,11 @@ def setup_sidebar():
             [**정찬희**](https://www.linkedin.com/in/%EC%B0%AC%ED%9D%AC-%EC%A0%95-b6506b328/)(포스텍 24)
         """)
 
-    # 코드
     with st.sidebar.expander("💻 코드", expanded=False):
         st.markdown("""
             전체 코드는 공개되어 있으며, 자유로운 활용이 가능합니다.  
             [**GitHub**](https://github.com/chaewon-huh/posplexity)
         """)
-
-    # (필요하면 모델 선택, RAG 옵션 복구)
-    # model_choice = st.sidebar.radio(
-    #     "모델 선택",
-    #     ["DeepSeek", "GPT"],
-    #     captions=["DeepSeek-v3", "gpt-4o-mini (비추천)"]
-    # )
-    # use_rag = st.sidebar.checkbox("Use RAG", value=True, help="벡터 검색 기반으로 문서를 참고")
 
 
 def setup_page():
@@ -101,31 +78,25 @@ def setup_page():
     st.caption("powered by P13")
 
 
-#############################################
-# Streamlit 기본 설정
-#############################################
+# Strealit Settings
 st.set_page_config(page_title="Posplexity", layout="wide")
 
-# 먼저 사이드바와 페이지 구성
+# 사이드바와 페이지 구성
 setup_sidebar()
 setup_page()
 
-#############################################
-# (1) 세션 상태 초기화
-#############################################
+# 세션 상태 초기화
 if "messages" not in st.session_state:
     st.session_state.messages = []  # [{role: "user"/"assistant", content: "..."}]
 
-#############################################
-# (2) 기존 채팅 기록 표시
-#############################################
+
+# 기존 채팅 기록 표시
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-#############################################
-# (3) 예시 질문 처리 - pending_question
-#############################################
+
+# 예시 질문 처리 - pending_question
 prompt = None
 
 # (a) 먼저, 예시 질문 버튼 클릭으로 저장된 pending_question이 있으면 사용
@@ -138,30 +109,25 @@ user_input = st.chat_input("메시지를 입력하세요")
 if user_input:
     prompt = user_input
 
-#############################################
-# (4) prompt가 최종 결정되면 -> 모델 호출
-#############################################
 if prompt:
-    # 1) 사용자 메시지 표시
+    # 1. 사용자 메시지 표시
     with st.chat_message("user"):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # 2) 챗봇 응답 (LLM 호출)
+    # 2. 챗봇 응답 (LLM 호출)
     with st.chat_message("assistant"):
-        # 메시지 출력 영역 2개: (1) 모델 답변용, (2) 출처 표시용
         message_placeholder = st.empty()
         reference_placeholder = st.empty()  # 출처 표시용
 
         async def get_response():
             """
             사용자 질의를 받아서,
-            1) (옵션) RAG 검색
-            2) 이전 대화 히스토리 + (옵션) RAG 컨텍스트 -> LLM에 전달 (스트리밍)
-            3) 스트리밍 결과 반환
+            1. RAG 검색
+            2. 이전 대화 히스토리 + (옵션) RAG 컨텍스트 -> LLM에 전달 (스트리밍)
+            3. 스트리밍 결과 반환
             """
             try:
-                # (a) 이전 대화 히스토리를 하나의 문자열로 합치기
                 history_text = ""
                 # 마지막(현재 발화한 user 메시지)은 제외하고 합침
                 for msg in st.session_state.messages[:-1]:
@@ -170,18 +136,14 @@ if prompt:
                     elif msg["role"] == "assistant":
                         history_text += f"Assistant: {msg['content']}\n"
                 
-                # (b) RAG 검색(옵션) -- use_rag, model_choice가 주석 처리되어있으니
-                #    기본값(True)로 두거나 필요에 맞게 수정
+                # 1. RAG 검색
                 found_chunks = []
-                if use_rag:
-                    with st.spinner("문서 탐색 중..."):
-                        found_chunks = search(prompt, top_k=5)  # Qdrant 벡터 검색
+                with st.spinner("문서 탐색 중..."):
+                    found_chunks = search(prompt, top_k=8, dev=False)  # Qdrant 벡터 검색
                 
-                # 검색된 청크들을 합쳐서 RAG 컨텍스트 생성
+                # 2-1. 검색된 청크들을 합쳐 prompt 구성
                 context_texts = [c["raw_text"] for c in found_chunks]
                 rag_context = "\n".join(context_texts)
-
-                # (c) 최종 Prompt 생성
                 final_prompt = f"""
 아래는 이전에 진행된 대화입니다:
 {history_text}
@@ -197,30 +159,21 @@ if prompt:
 답변:
 """
 
-                # (d) LLM에 프롬프트 전달 (스트리밍)
-                # model_choice가 None일 가능성이 있으니, 기본값 처리
-                selected_model = model_choice if model_choice else "DeepSeek"
-
-                if selected_model == "GPT":
-                    stream = await run_gpt_stream(
-                        target_prompt=final_prompt,
-                        prompt_in_path="chat_basic.json"
-                    )
-                else:  # "DeepSeek"
-                    stream = await run_deepseek_stream(
-                        target_prompt=final_prompt,
-                        prompt_in_path="chat_basic.json"
-                    )
+                # 2-2. LLM에 프롬프트 전달 (스트리밍)
+                stream = await run_deepseek_stream(
+                    target_prompt=final_prompt,
+                    prompt_in_path="chat_basic.json"
+                )
                 
-                # (e) 스트리밍 결과 처리 (메시지 누적하여 표시)
+                # 3. Streaming 결과 처리
                 full_response = ""
                 async for chunk in stream:
                     if chunk.choices[0].delta.content is not None:
                         full_response += chunk.choices[0].delta.content
                         message_placeholder.markdown(full_response)
 
-                # (f) 검색된 청크의 출처 만들기 (옵션)
-                if use_rag and found_chunks:
+                # 검색된 청크의 출처 만들기 
+                if found_chunks:
                     dedup_set = set()
                     for c in found_chunks:
                         doc_source = c.get("doc_source", "Unknown Source")

@@ -72,17 +72,6 @@ async def async_run_gpt(
     """
     이미지+텍스트 데이터에 대해 gpt 모델을 사용합니다.
     structured, step 등 beta 기능을 적용한 코드입니다.
-
-    Args:
-        target_prompt(str): Input data를 넣습니다. user_prompt_head와 user_prompt_tail 사이에 삽입됩니다.
-        prompt_in_path(str): 각 task에 맞게 정리해둔 prompt(json)의 경로를 지정합니다.
-        output_structure: output structure를 입력합니다.
-        img_in_data(str): 이미지 데이터 경로, 혹은 Url을 넣습니다.
-        gpt_model(str): 사용할 gpt 모델을 선택합니다. (gpt-4o-2024-08-06 / gpt-4o-mini)
-
-
-    Returns:
-        str: GPT를 통해 나온 final 결과를 반환합니다.
     """
     with open(
         os.path.join(prompt_base_path, prompt_in_path), "r", encoding="utf-8"

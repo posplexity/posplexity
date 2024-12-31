@@ -1,5 +1,5 @@
-import requests, openai, tiktoken, os, json, base64, time
 from src.utils.decorator import retry_async
+import openai, os, json
 
 prompt_base_path = "src/llm/deepseek/prompt"
 client = openai.AsyncOpenAI(
@@ -37,7 +37,6 @@ async def async_run_deepseek(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": input_content},
         ],
-        # response_format=output_structure,
     )
     chat_output = chat_completion.choices[0].message.content
     return chat_output, chat_completion

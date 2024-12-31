@@ -1,5 +1,5 @@
 
-import functools, time, traceback, asyncio
+import functools, time, asyncio
 
 
 def retry(max_attempts=3, delay_seconds=1, exceptions=(Exception,)):
