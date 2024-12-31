@@ -143,7 +143,7 @@ if prompt:
                 # 1. RAG 검색
                 found_chunks = []
                 with st.spinner("문서를 조회 중입니다..."):
-                    found_chunks = search(prompt, top_k=8, dev=False)  # Qdrant 벡터 검색
+                    found_chunks = search(prompt, top_k=5, dev=False)  # Qdrant 벡터 검색
                 
                 # 2-1. 검색된 청크들을 합쳐 최종 Prompt 구성
                 context_texts = [c["raw_text"] for c in found_chunks]
