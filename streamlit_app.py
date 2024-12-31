@@ -4,7 +4,7 @@ from src.search.search import search
 
 import streamlit as st
 import streamlit.components.v1 as components
-import asyncio
+import asyncio, json
 
 
 try:
@@ -13,6 +13,8 @@ except RuntimeError:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+name_source_mapping = json.load(open("data/mapping.json", "r"))
+
 
 def setup_sidebar():
     """
@@ -20,12 +22,12 @@ def setup_sidebar():
     """
     try:
         st.sidebar.image(
-            "assets/postech_logo.svg",
+            "data/assets/postech_logo.svg",
             use_container_width=True
         )
     except:
         st.sidebar.image(
-            "assets/postech_logo.svg",
+            "data/assets/postech_logo.svg",
             use_column_width=True
         )
 
@@ -37,7 +39,7 @@ def setup_sidebar():
     with st.sidebar.expander("ℹ️ 예시 질문", expanded=True):
         example_questions = [
             "밥약이 무슨 뜻인가요?",
-            "1학년 기숙사에서 술을 마실 수 있나요?",
+            "새터 기간동안 술을 마셔도 괜찮나요?",
             "포스텍 밴드 동아리에는 어떤게 있나요?",
         ]
         for question in example_questions:
@@ -50,11 +52,11 @@ def setup_sidebar():
     with st.sidebar.expander("💬 문의하기", expanded=False):
         st.markdown("""                    
             ### Contact
-            개선 사항이나 피드백은 아래 이메일로 보내주시면 감사하겠습니다.
-            - postech.p13@gmail.com
+            궁금한 점이나 피드백은 언제든지 아래 페이지를 통해 공유해 주세요.
+            - [문의사항 페이지](https://forms.gle/aMAJA7yPFfCRGLro9)
                     
             ### Contributing
-            보충할 자료가 있으면 언제든 공유 부탁드립니다.
+            자료를 보완하거나 새롭게 추가하고 싶은 내용이 있다면, 아래 업로드 페이지를 이용해 주시기 바랍니다.
             - [업로드 페이지](https://docs.google.com/forms/d/e/1FAIpQLScUW14gj69mWXlhoKpJejBLWCbj-wOQZ4e6XQT69ZFNWZS4SA/viewform)
         """)
 
@@ -180,17 +182,27 @@ if prompt:
                 if found_chunks:
                     dedup_set = set()
                     for c in found_chunks:
-                        doc_source = c.get("doc_source", "Unknown Source")
                         doc_title = c.get("doc_title", "Untitled")
+                        doc_source = c.get("doc_source", "Unknown Source")
+                        if not doc_source.startswith("http"):
+                            doc_source = name_source_mapping.get(doc_title, doc_source)
                         page_num = c.get("page_num", None)
                         dedup_set.add((doc_title, doc_source, page_num))
 
                     refs = []
                     for idx, (title, source, page) in enumerate(dedup_set, start=1):
-                        if page is not None:
-                            refs.append(f"- **{title}** (p.{page}) / {source}")
+                        print(source)
+                        if source.startswith("http"):
+                            print("startswith")
+                            if page is not None:
+                                refs.append(f"- **{title}** (p.{page}) / [링크로 이동]({source})")
+                            else:
+                                refs.append(f"- **{title}** / [링크로 이동]({source})")
                         else:
-                            refs.append(f"- **{title}** / {source}")
+                            if page is not None:
+                                refs.append(f"- **{title}** (p.{page}) / {source}")
+                            else:
+                                refs.append(f"- **{title}** / {source}")
                     
                     refs_text = "\n".join(refs)
                     reference_placeholder.markdown(
