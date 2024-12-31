@@ -30,7 +30,7 @@ def setup_sidebar():
         )
 
     st.sidebar.markdown("""
-    \n새내기들의 불편함을 최소화하기 위해, 근거자료를 기반으로 답변하는 챗봇을 제작하였습니다.
+    \n새내기 여러분의 궁금증을 해소하기 위해 관련 자료를 기반으로 답변을 제공하는 챗봇입니다.
     """)
 
     # 예시 질문 섹션
@@ -48,10 +48,14 @@ def setup_sidebar():
     st.sidebar.divider()
 
     with st.sidebar.expander("💬 문의하기", expanded=False):
-        st.markdown("""
+        st.markdown("""                    
             ### Contact
-            응답 문서 및 자료 제보, 추가 기능 제안, 피드백 사안은 모두 하기 이메일로 정리하여 보내주시면 감사하겠습니다.
-            - cw.huh@postech.ac.kr
+            개선 사항이나 피드백은 아래 이메일로 보내주시면 감사하겠습니다.
+            - postech.p13@gmail.com
+                    
+            ### Contributing
+            보충할 자료가 있으면 언제든 공유 부탁드립니다.
+            - [업로드 페이지](https://docs.google.com/forms/d/e/1FAIpQLScUW14gj69mWXlhoKpJejBLWCbj-wOQZ4e6XQT69ZFNWZS4SA/viewform)
         """)
 
     with st.sidebar.expander("👨‍👩‍👦‍👦 제작자", expanded=False):
@@ -65,7 +69,7 @@ def setup_sidebar():
 
     with st.sidebar.expander("💻 코드", expanded=False):
         st.markdown("""
-            전체 코드는 공개되어 있으며, 자유로운 활용이 가능합니다.  
+            전체 코드는 오픈소스로 공개되어 있습니다.  
             [**GitHub**](https://github.com/chaewon-huh/posplexity)
         """)
 
@@ -78,7 +82,7 @@ def setup_page():
     st.caption("powered by P13")
 
 
-# Strealit Settings
+# Streamlit Settings
 st.set_page_config(page_title="Posplexity", layout="wide")
 
 # 사이드바와 페이지 구성
@@ -105,7 +109,7 @@ if "pending_question" in st.session_state:
     del st.session_state.pending_question  # 한 번 사용 후 삭제
 
 # (b) 사용자가 직접 입력한 채팅이 있으면 그걸로 대체
-user_input = st.chat_input("메시지를 입력하세요")
+user_input = st.chat_input("질문을 입력하세요")
 if user_input:
     prompt = user_input
 
@@ -124,7 +128,7 @@ if prompt:
             """
             사용자 질의를 받아서,
             1. RAG 검색
-            2. 이전 대화 히스토리 + (옵션) RAG 컨텍스트 -> LLM에 전달 (스트리밍)
+            2. 이전 대화 히스토리 + RAG 컨텍스트 -> LLM에 전달 (스트리밍)
             3. 스트리밍 결과 반환
             """
             try:
@@ -138,24 +142,24 @@ if prompt:
                 
                 # 1. RAG 검색
                 found_chunks = []
-                with st.spinner("문서 탐색 중..."):
+                with st.spinner("문서를 조회 중입니다..."):
                     found_chunks = search(prompt, top_k=8, dev=False)  # Qdrant 벡터 검색
                 
-                # 2-1. 검색된 청크들을 합쳐 prompt 구성
+                # 2-1. 검색된 청크들을 합쳐 최종 Prompt 구성
                 context_texts = [c["raw_text"] for c in found_chunks]
                 rag_context = "\n".join(context_texts)
                 final_prompt = f"""
-아래는 이전에 진행된 대화입니다:
+아래는 이전 대화의 기록입니다:
 {history_text}
 
-그리고 아래는 RAG 검색에서 찾은 참고 자료입니다:
+다음은 참고 자료(RAG)에서 발췌한 내용입니다:
 {rag_context}
 
-이제 사용자 질문을 다시 안내해 드리겠습니다:
+이제 사용자의 질문을 다시 안내해 드리겠습니다:
 
 질문: {prompt}
 
-위 대화와 자료를 참고하여 답변을 생성해 주세요.
+위 대화와 자료를 기반으로 답변을 작성해 주세요.
 답변:
 """
 
@@ -165,20 +169,20 @@ if prompt:
                     prompt_in_path="chat_basic.json"
                 )
                 
-                # 3. Streaming 결과 처리
+                # 3. 스트리밍 결과 처리
                 full_response = ""
                 async for chunk in stream:
                     if chunk.choices[0].delta.content is not None:
                         full_response += chunk.choices[0].delta.content
                         message_placeholder.markdown(full_response)
 
-                # 검색된 청크의 출처 만들기 
+                # 출처 표시
                 if found_chunks:
                     dedup_set = set()
                     for c in found_chunks:
                         doc_source = c.get("doc_source", "Unknown Source")
                         doc_title = c.get("doc_title", "Untitled")
-                        page_num = c.get("page_num", None)  # PDF 페이지 번호
+                        page_num = c.get("page_num", None)
                         dedup_set.add((doc_title, doc_source, page_num))
 
                     refs = []
@@ -190,13 +194,13 @@ if prompt:
                     
                     refs_text = "\n".join(refs)
                     reference_placeholder.markdown(
-                        f"---\n**참고 문서(청크) 출처**\n\n{refs_text}\n"
+                        f"---\n**참고 자료 출처**\n\n{refs_text}\n"
                     )
 
                 return full_response
 
             except Exception as e:
-                raise Exception(f"응답 생성 중 오류 발생: {str(e)}")
+                raise Exception(f"응답 생성 중 오류가 발생했습니다: {str(e)}")
 
         try:
             # 비동기 응답 처리

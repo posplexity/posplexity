@@ -109,7 +109,7 @@ def upload(db_path: str, recreate:bool=False, dev:bool=True):
 
 if __name__ == "__main__":
     # init
-    upload(db_path="db/uploaded", recreate=True)
+    upload(db_path="db/uploaded", recreate=True, dev=False)
 
     # update
     # upload(db_path="db/staged", recreate=False, dev=False)

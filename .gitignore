@@ -159,3 +159,4 @@ pyproject.toml
 src/.DS_Store
 src/rag/__pycache__/parse.cpython-311.pyc
 src/llm/deepseek/__pycache__/inference.cpython-311.pyc
+.DS_Store

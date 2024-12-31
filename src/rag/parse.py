@@ -23,8 +23,11 @@ def parse_word(file_path: str, clean: bool = False) -> Dict[str, Any]:
             if first_line:  
                 first_line = False
                 # URL인 경우만 source로 사용
-                if cleaned_text.startswith(('http://', 'https://')):
-                    source = cleaned_text
+                if cleaned_text.startswith(('URL', 'http://', 'https://')):
+                    if cleaned_text.startswith('URL'):
+                        source = cleaned_text.split('URL: ')[1]
+                    else:
+                        source = cleaned_text
                     continue
                 # URL이 아니면 텍스트로 처리
                 if clean:
