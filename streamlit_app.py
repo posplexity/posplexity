@@ -18,16 +18,23 @@ except RuntimeError:
 model_choice = None
 use_rag = True
 
-
 def setup_sidebar():
     """
     사이드바 UI를 구성하고, 전역 변수에 모델 선택/옵션을 세팅한다.
     """
     global model_choice, use_rag
 
+    ########################################
+    # (1) 사이드바 최상단 로고 표시
+    ########################################
+    st.sidebar.image(
+        "assets/postech_logo.svg",
+        use_column_width=True
+    )
+    # --------------------------------------
+
     st.sidebar.markdown("""
-    ### Posplexity : 포스텍 신입생 도우미 챗봇
-    새내기들의 불편함을 최소화하기 위해, 근거자료를 기반으로 답변하는 챗봇을 제작하였습니다.
+    \n새내기들의 불편함을 최소화하기 위해, 근거자료를 기반으로 답변하는 챗봇을 제작하였습니다.
     """)
 
     # 예시 질문 섹션
@@ -43,35 +50,39 @@ def setup_sidebar():
                 st.session_state.pending_question = question
                 st.rerun()
 
+    st.sidebar.divider()
+
+    # 문의하기
     with st.sidebar.expander("💬 문의하기", expanded=False):
         st.markdown("""
             ### Contact
             응답 문서 및 자료 제보, 추가 기능 제안, 피드백 사안은 모두 하기 이메일로 정리하여 보내주시면 감사하겠습니다.
-            - cw.huh@postech.ac.kr""")
-        
+            - cw.huh@postech.ac.kr
+        """)
+
+    # 제작자
     with st.sidebar.expander("👨‍👩‍👦‍👦 제작자", expanded=False):
         st.markdown("""
             ### Contributers
-            [**허채원**](https://www.linkedin.com/in/cwhuh/)(포스텍 24), \n
-            [**최지안**](https://www.linkedin.com/in/%EC%A7%80%EC%95%88-%EC%B5%9C-72093030a/)(포스텍 24), \n
-            [**최주연**](https://www.linkedin.com/in/%EC%A3%BC%EC%97%B0-%EC%B5%9C-a9884331b/)(포스텍 24), \n
+            [**허채원**](https://www.linkedin.com/in/cwhuh/)(포스텍 24),  
+            [**최지안**](https://www.linkedin.com/in/%EC%A7%80%EC%95%88-%EC%B5%9C-72093030a/)(포스텍 24),  
+            [**최주연**](https://www.linkedin.com/in/%EC%A3%BC%EC%97%B0-%EC%B5%9C-a9884331b/)(포스텍 24),  
             [**정찬희**](https://www.linkedin.com/in/%EC%B0%AC%ED%9D%AC-%EC%A0%95-b6506b328/)(포스텍 24)
-            """)
-        
+        """)
+
+    # 코드
     with st.sidebar.expander("💻 코드", expanded=False):
         st.markdown("""
-            전체 코드는 공개되어 있으며, 자유로운 활용이 가능합니다. \n
+            전체 코드는 공개되어 있으며, 자유로운 활용이 가능합니다.  
             [**GitHub**](https://github.com/chaewon-huh/posplexity)
-            """)
+        """)
 
-    # 모델 선택 라디오 버튼
+    # (필요하면 모델 선택, RAG 옵션 복구)
     # model_choice = st.sidebar.radio(
     #     "모델 선택",
     #     ["DeepSeek", "GPT"],
     #     captions=["DeepSeek-v3", "gpt-4o-mini (비추천)"]
     # )
-
-    # # RAG 옵션 체크박스
     # use_rag = st.sidebar.checkbox("Use RAG", value=True, help="벡터 검색 기반으로 문서를 참고")
 
 
@@ -152,7 +163,8 @@ if prompt:
                     elif msg["role"] == "assistant":
                         history_text += f"Assistant: {msg['content']}\n"
                 
-                # (b) RAG 검색(옵션)
+                # (b) RAG 검색(옵션) -- use_rag, model_choice가 주석 처리되어있으니
+                #    기본값(True)로 두거나 필요에 맞게 수정
                 found_chunks = []
                 if use_rag:
                     with st.spinner("문서 탐색 중..."):
@@ -179,7 +191,10 @@ if prompt:
 """
 
                 # (d) LLM에 프롬프트 전달 (스트리밍)
-                if model_choice == "GPT":
+                # model_choice가 None일 가능성이 있으니, 기본값 처리
+                selected_model = model_choice if model_choice else "DeepSeek"
+
+                if selected_model == "GPT":
                     stream = await run_gpt_stream(
                         target_prompt=final_prompt,
                         prompt_in_path="chat_basic.json"
