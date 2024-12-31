@@ -74,7 +74,7 @@ def setup_sidebar():
 
     with st.sidebar.expander("👨‍👩‍👦‍👦 제작자", expanded=False):
         st.markdown("""
-            ### Contributers
+            ### Contributors
             [**허채원**](https://www.linkedin.com/in/cwhuh/)(포스텍 24),  
             [**최지안**](https://www.linkedin.com/in/%EC%A7%80%EC%95%88-%EC%B5%9C-72093030a/)(포스텍 24),  
             [**최주연**](https://www.linkedin.com/in/%EC%A3%BC%EC%97%B0-%EC%B5%9C-a9884331b/)(포스텍 24),  
