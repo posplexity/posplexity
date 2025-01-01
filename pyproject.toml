@@ -12,11 +12,13 @@ openai = "^1.58.1"
 tiktoken = "^0.8.0"
 streamlit = "^1.41.1"
 python-dotenv = "^1.0.1"
-qdrant-client = "^1.12.2"
 docx = "^0.2.4"
 python-docx = "^1.1.2"
 pdfplumber = "^0.11.4"
 tqdm = "^4.67.1"
+boto3 = "^1.35.90"
+botocore = "^1.35.90"
+qdrant-client = "^1.12.2"
 
 
 [build-system]

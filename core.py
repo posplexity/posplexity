@@ -4,6 +4,7 @@ from src.llm.deepseek.inference import run_deepseek_stream
 from src.search.search import search
 from common.types import intlist_struct, str_struct
 import asyncio
+from common.config import COLLECTION_NAME
 
 def get_response(
     prompt: str,
@@ -44,8 +45,9 @@ def get_response(
                 history_text += f"Assistant: {content}\n"
 
         # 2. RAG 검색
+        collection_name = COLLECTION_NAME[branch]["prod"]
         with st.spinner("문서를 조회 중입니다..."):
-            found_chunks = search(refined_prompt, top_k=top_k, dev=False)
+            found_chunks = search(collection_name=collection_name, user_query=refined_prompt, top_k=top_k, dev=False)
 
         # 3. Re-ranking
         chunk_dict = {
