@@ -64,10 +64,11 @@ def setup_page():
     """메인 페이지(본문) 설정을 담당. 타이틀, 부가 문구 등을 표시."""
 
     # Postech logo
-    st.image(
-        "data/assets/postech/postech_logo.svg",
-        use_container_width=True
-    )
+    # st.image(
+    #     "data/assets/postech/postech_logo.svg",
+    #     use_container_width=True
+    # )
+    st.title("포스텍 2025 입학을 축하합니다!")
     st.caption("powered by P13")
 
 
