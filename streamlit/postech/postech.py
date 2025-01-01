@@ -28,9 +28,9 @@ def setup_sidebar():
     # 예시 질문 
     with st.sidebar.expander("ℹ️ 예시 질문", expanded=True):
         example_questions = [
-            "밥약이 무슨 뜻인가요?",
+            "포스텍에 볼링 동아리가 있나요?",
             "새터 기간동안 술을 마셔도 괜찮나요?",
-            "야구를 좋아하는데, 어떤 동아리에 들어가는게 좋을까요?",
+            "밥약이 무슨 뜻인가요?",
         ]
         for question in example_questions:
             if st.button(question):
