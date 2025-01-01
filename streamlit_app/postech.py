@@ -17,7 +17,7 @@ def setup_sidebar():
 
     # posplexity 로고
     st.sidebar.image(
-        "data/assets/posplexity_light.png",
+        "data/assets/postech/posplexity_for_postech.png",
         use_container_width=True
     )
     
