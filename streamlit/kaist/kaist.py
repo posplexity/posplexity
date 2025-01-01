@@ -13,25 +13,27 @@ except RuntimeError:
 name_source_mapping = json.load(open("data/mapping.json", "r"))
 
 def setup_sidebar():
-    """
-    사이드바 UI를 구성하고, 전역 변수에 모델 선택/옵션을 세팅한다.
-    """
-    # posplexity 로고(상단)
+    """사이드바 UI 구성"""
+
+    # posplexity 로고
     st.sidebar.image(
-        "data/assets/posplexity_light.png",
+        "data/assets/kaist/posplexity_for_kaist.png",
         use_container_width=True
     )
     
     st.sidebar.markdown("""
     \n새내기 여러분의 궁금증을 해소하기 위해 관련 자료를 기반으로 답변을 제공하는 챗봇입니다.
     """)
+    st.sidebar.markdown("""
+    **제작 중입니다!** \n-허채원-
+    """)
 
-    # 예시 질문 섹션
+    # 예시 질문 
     with st.sidebar.expander("ℹ️ 예시 질문", expanded=True):
         example_questions = [
-            "밥약이 무슨 뜻인가요?",
+            "볼링 동아리가 있나요?",
             "새터 기간동안 술을 마셔도 괜찮나요?",
-            "야구를 좋아하는데, 어떤 동아리에 들어가는게 좋을까요?",
+            "밥약이 무슨 뜻인가요?",
         ]
         for question in example_questions:
             if st.button(question):
@@ -60,23 +62,17 @@ def setup_sidebar():
             [**정찬희**](https://www.linkedin.com/in/%EC%B0%AC%ED%9D%AC-%EC%A0%95-b6506b328/)(포스텍 24)
         """)
 
-    with st.sidebar.expander("💻 코드", expanded=False):
-        st.markdown("""
-            전체 코드는 오픈소스로 공개되어 있습니다.  
-            [**GitHub**](https://github.com/chaewon-huh/posplexity)
-        """)
-
 
 def setup_page():
-    """
-    메인 페이지(본문) 설정을 담당. 타이틀, 부가 문구 등을 표시.
-    """
+    """메인 페이지(본문) 설정을 담당. 타이틀, 부가 문구 등을 표시."""
 
-    st.image(
-        "data/assets/postech/postech_logo.svg",
-        use_container_width=True
-    )
-    st.caption("powered by P13")
+    # Postech logo
+    # st.image(
+    #     "data/assets/postech/postech_logo.svg",
+    #     use_container_width=True
+    # )
+    st.title("카이스트 2025 입학을 축하합니다!")
+    st.caption("powered by posplexity")
 
 
 # Streamlit Settings
@@ -85,12 +81,13 @@ st.set_page_config(page_title="Posplexity", layout="wide")
 setup_sidebar()
 setup_page()
 
+# Default messages
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
             "role": "assistant",
             "content": (
-                "안녕하세요! 저는 POSTECH 새내기 여러분을 도와드리는 챗봇입니다.\n"
+                "안녕하세요! 저는 KAIST 새내기 여러분을 도와드리는 챗봇입니다.\n"
                 "무엇이든 궁금한 점이 있다면 편하게 물어보세요."
             )
         }
