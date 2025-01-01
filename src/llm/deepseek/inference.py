@@ -1,7 +1,7 @@
 from src.utils.decorator import retry_async
 import openai, os, json
 
-prompt_base_path = "src/llm/deepseek/prompt"
+prompt_base_path = "src/llm/prompt"
 async_client = openai.AsyncOpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com/v1",

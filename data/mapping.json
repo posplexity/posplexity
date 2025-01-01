@@ -1,11 +1,15 @@
 {
-    "8.-기숙대학운영세칙2023.-9.-18.-개정.pdf": "https://drive.google.com/file/d/18r8Xr1DJtToG5moci6rPJABwGEihJT3f/view?usp=drive_link",
-    "2024 학부 교과과정 안내.pdf":"https://drive.google.com/file/d/1YXf1SF6a47LXUzD3EAc3YG7XMH5v7aTT/view?usp=drive_link",
-    "2025-1_학사일정.pdf":"https://drive.google.com/file/d/1KA03W51dcmYaBRmZgFfr7ha-bSl_FX5i/view?usp=drive_link",
-    "2025-2_학사일정.pdf":"https://drive.google.com/file/d/113n0DqR0_bvzmFOd5xBm0ZZwNoVin9Gi/view?usp=drive_link",
-    "포스텍 장학제도 안내.pdf":"https://drive.google.com/file/d/1g5TZGkQr6pT5u86owusS4fhg0F8lK1Wj/view?usp=drive_link",
-    "AP 인정 신청 안내.pdf":"https://drive.google.com/file/d/1q6TpWFlrmM1YlMpvwStsAjJ3pJGxsMvA/view?usp=drive_link",
-    "P13이란.docx":"https://docs.google.com/document/d/1TRQVqxVsJ_SteBHXVmyk6pahaziTzzhOQopGJ8wlPRM/edit?usp=drive_link",
-    "RC 규칙.docx":"https://docs.google.com/document/d/1agJI7OLtpDAzdWFE9bbvnPei-kfE4JndhEnI_BmTunI/edit?usp=drive_link",
-    "동아리_정보_모음.docx":"https://drive.google.com/file/d/14pzAlVRgi0j9o25wK7-WcJmLmQ5i4H4y/view?usp=drive_link"
+    "postech":{
+        "8.-기숙대학운영세칙2023.-9.-18.-개정.pdf": "https://drive.google.com/file/d/18r8Xr1DJtToG5moci6rPJABwGEihJT3f/view?usp=drive_link",
+        "2024 학부 교과과정 안내.pdf":"https://drive.google.com/file/d/1YXf1SF6a47LXUzD3EAc3YG7XMH5v7aTT/view?usp=drive_link",
+        "2025-1_학사일정.pdf":"https://drive.google.com/file/d/1KA03W51dcmYaBRmZgFfr7ha-bSl_FX5i/view?usp=drive_link",
+        "2025-2_학사일정.pdf":"https://drive.google.com/file/d/113n0DqR0_bvzmFOd5xBm0ZZwNoVin9Gi/view?usp=drive_link",
+        "포스텍 장학제도 안내.pdf":"https://drive.google.com/file/d/1g5TZGkQr6pT5u86owusS4fhg0F8lK1Wj/view?usp=drive_link",
+        "AP 인정 신청 안내.pdf":"https://drive.google.com/file/d/1q6TpWFlrmM1YlMpvwStsAjJ3pJGxsMvA/view?usp=drive_link",
+        "P13이란.docx":"https://docs.google.com/document/d/1TRQVqxVsJ_SteBHXVmyk6pahaziTzzhOQopGJ8wlPRM/edit?usp=drive_link",
+        "RC 규칙.docx":"https://docs.google.com/document/d/1agJI7OLtpDAzdWFE9bbvnPei-kfE4JndhEnI_BmTunI/edit?usp=drive_link",
+        "동아리_정보_모음.docx":"https://drive.google.com/file/d/14pzAlVRgi0j9o25wK7-WcJmLmQ5i4H4y/view?usp=drive_link"
+    },
+    "kaist":{
+    }
 }

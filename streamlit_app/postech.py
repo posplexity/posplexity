@@ -1,7 +1,8 @@
-# Deprecated
+import sys, os, asyncio, json
+sys.path.append(os.path.abspath("")) 
+
 import streamlit as st
 from core import get_response
-import asyncio, json
 
 try:
     loop = asyncio.get_event_loop()
