@@ -125,7 +125,7 @@ def make_page():
 
                 local_file_paths = []
                 for f in files_to_upload:
-                    local_path = f"{tmp_dir}/{f.name}"
+                    local_path = f"{tmp_dir}/{f.name[:50]}"
                     with open(local_path, "wb") as out:
                         out.write(f.getvalue())
                     local_file_paths.append(local_path)
