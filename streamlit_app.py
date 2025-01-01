@@ -20,29 +20,11 @@ def setup_sidebar():
     사이드바 UI를 구성하고, 전역 변수에 모델 선택/옵션을 세팅한다.
     """
     # posplexity 로고(상단)
-    try:
-        st.sidebar.image(
-            "data/assets/posplexity_light.png",
-            use_container_width=True
-        )
-    except:
-        st.sidebar.image(
-            "data/assets/posplexity_light.png",
-            use_column_width=True
-        )
-
-    # 포스텍 로고(하단)
-    # try:
-    #     st.sidebar.image(
-    #         "data/assets/postech_logo.svg",
-    #         use_container_width=True
-    #     )
-    # except:
-    #     st.sidebar.image(
-    #         "data/assets/postech_logo.svg",
-    #         use_column_width=True
-    #     )
-
+    st.sidebar.image(
+        "data/assets/posplexity_light.png",
+        use_container_width=True
+    )
+    
     st.sidebar.markdown("""
     \n새내기 여러분의 궁금증을 해소하기 위해 관련 자료를 기반으로 답변을 제공하는 챗봇입니다.
     """)
@@ -92,7 +74,11 @@ def setup_page():
     """
     메인 페이지(본문) 설정을 담당. 타이틀, 부가 문구 등을 표시.
     """
-    st.title("POSTECH 25학번 입학을 환영합니다!")
+
+    st.image(
+        "data/assets/postech_logo.svg",
+        use_container_width=True
+    )
     st.caption("powered by P13")
 
 
@@ -105,7 +91,16 @@ setup_page()
 
 # 세션 상태 초기화
 if "messages" not in st.session_state:
-    st.session_state.messages = []  # [{role: "user"/"assistant", content: "..."}]
+    # [{role: "assistant", content: "..."}] 형태로 미리 메시지를 추가
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": (
+                "안녕하세요! 저는 POSTECH 새내기 여러분을 도와드리는 챗봇입니다.\n"
+                "무엇이든 궁금한 점이 있다면 편하게 물어보세요."
+            )
+        }
+    ]
 
 
 # 기존 채팅 기록 표시
