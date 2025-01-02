@@ -29,6 +29,7 @@ def get_response(
     prompt: str,
     messages: list,
     name_source_mapping: dict,
+    filter: list[str] = None,
     top_k: int = 30,
     refinement_model: str = "gpt-4o-mini",
     reranking_model: str = "gpt-4o-2024-08-06",
@@ -73,6 +74,7 @@ def get_response(
             collection_name=collection_name, 
             user_query=refined_prompt, 
             top_k=top_k, 
+            filter=filter,
             dev=False
         )
 
@@ -165,7 +167,7 @@ def run_final_llm_stream(
                     # 첫 토큰이 들어온 시점 -> 여기서 시간 측정
                     first_chunk_flag = False
                     time_spent = time.time() - start_time
-                    sec_spent_str = f"{int(time_spent)}초 동안 문서 탐색"
+                    sec_spent_str = f"{int(time_spent)+1}초 동안 문서 탐색"
                     # "\n" 붙여서 줄바꿈 후 출력
                     stream_caption(refinement_placeholder, f"\n{sec_spent_str}", 0.01)
 

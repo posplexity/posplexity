@@ -12,6 +12,11 @@ except RuntimeError:
 
 name_source_mapping = json.load(open("data/mapping.json", "r"))
 
+def _get_selected_filters():
+    """체크된 항목만 필터 리스트로 만들어 반환. 없으면 None."""
+    filter_keys = ["official", "email", "everytime"]
+    selected = [f for f in filter_keys if st.session_state.get(f)]
+    return selected if selected else None
 
 def setup_sidebar():
     """사이드바 UI 구성"""
@@ -37,6 +42,15 @@ def setup_sidebar():
             if st.button(question):
                 st.session_state.pending_question = question
                 st.rerun()
+
+    with st.sidebar.expander("⚙️ 설정", expanded=False):
+        st.markdown("### 검색 소스")
+        st.caption("**1/4까지 개발 예정입니다.**")
+        st.caption("에브리타임 검색 시, 정확하지 않은 정보가 탐색될 수 있습니다.")
+        st.checkbox("공식 문서", value=True, key="official", disabled=True)
+        st.checkbox("교내회보메일", value=True, key="email", disabled=True) 
+        st.checkbox("에브리타임", value=True, key="everytime", disabled=True)
+        
 
     st.sidebar.divider()
 
@@ -143,11 +157,19 @@ if prompt:
 
     # 코어 로직 호출
     with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
+
         try:
+            selected_filters = _get_selected_filters()
+
+            # TODO : 데이터 재업로드 이후 제거 (현재는 Filter가 전체에 걸려있지 않아, everytime만 정제)
+            if "everytime" not in selected_filters:
+                selected_filters = ["everytime"]
+
             final_response = get_response(
                 prompt=prompt,
                 messages=st.session_state.messages,
-                name_source_mapping=name_source_mapping
+                name_source_mapping=name_source_mapping,
+                filter=selected_filters
             )
             # 최종 응답을 세션 메시지에 저장
             st.session_state.messages.append({
