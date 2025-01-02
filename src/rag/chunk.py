@@ -1,7 +1,7 @@
 # chunk.py
 from typing import List, Dict, Any
 from common.config import DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_STEP
-from common.types import Chunk
+from common.types import Chunk, Document
 
 def sliding_window(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE, chunk_step: int = DEFAULT_CHUNK_STEP) -> List[str]:
     """
@@ -55,3 +55,30 @@ def chunk_pdf(parsed_dict: Dict[str, Any], chunk_size: int = DEFAULT_CHUNK_SIZE,
     
     chunk_list = [Chunk(doc_id=parsed_dict.doc_id, chunk_id=idx, body=chunk) for idx, chunk in enumerate(chunks)]
     return chunk_list
+
+def chunk_text(doc: Document) -> list[Chunk]:
+    """
+    Document의 body(단순 텍스트)를 일정 길이로 잘라서 Chunk의 list로 반환.
+    아래는 예시 구현이며, 실제로는 토큰 단위로 잘라내거나,
+    적절한 길이(예: 1000자, 2000자 등)로 segmenting 하는 로직을 넣으시면 됩니다.
+    """
+    max_len = 1000  # 예시
+    body = doc.raw_text
+
+    chunks = []
+    start_idx = 0
+    chunk_id = 0
+
+    while start_idx < len(body):
+        end_idx = start_idx + max_len
+        snippet = body[start_idx:end_idx]
+        chunk = Chunk(
+            doc_id=doc.doc_id,
+            chunk_id=chunk_id,
+            body=snippet
+        )
+        chunks.append(chunk)
+        chunk_id += 1
+        start_idx = end_idx
+
+    return chunks

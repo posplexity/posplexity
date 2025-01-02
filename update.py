@@ -10,12 +10,13 @@ from common.config import (
     EMBED_BATCH_SIZE,
 )
 from src.llm.gpt.inference import async_run_gpt
-from src.rag.parse import parse_word, parse_pdf
-from src.rag.chunk import chunk_word, chunk_pdf
+from src.rag.parse import parse_word, parse_pdf, parse_mbox  
+from src.rag.chunk import chunk_word, chunk_pdf, chunk_text  
 from src.rag.embedding import async_openai_embedding
 from src.utils.utils import async_wrapper
 
 import os, asyncio
+
 
 def get_max_point_id(collection_name: str) -> int:
     """
@@ -26,7 +27,7 @@ def get_max_point_id(collection_name: str) -> int:
     scroll_offset = None
 
     while True:
-        # 한 번에 1000개씩 스크롤
+        # 한 번에 100개씩 스크롤
         result: ScrollResult = qdrant_client.scroll(
             collection_name=collection_name,
             offset=scroll_offset,
@@ -42,6 +43,7 @@ def get_max_point_id(collection_name: str) -> int:
         scroll_offset = result[1]
 
     return max_id
+
 
 def upload(db_path: str, recreate: bool = False, dev: bool = True):
     """
@@ -66,26 +68,34 @@ def upload(db_path: str, recreate: bool = False, dev: bool = True):
 
     # 1-1. 기존에 있는 최대 ID 구하기 (컬렉션이 비어 있으면 0)
     existing_max_id = get_max_point_id(COLLECTION_NAME)
-    # 만약 doc_id * 1000 + chunk_id 형태를 유지하려면,
-    # "이미 사용된 doc_id" = existing_max_id // 1000
     next_doc_id_start = (existing_max_id // 1000) + 1
 
     # 2. load file list
-    paths_list, docs_list = [], []
+    paths_list = []
+    docs_list = []
+
     for file in os.listdir(db_path):
-        if file.endswith(".docx") or file.endswith(".pdf"):
+        # .docx, .pdf, .mbox 모두 처리
+        if file.endswith(".docx") or file.endswith(".pdf") or file.endswith("mbox"):
             paths_list.append(os.path.join(db_path, file))
 
     # 3. parse files
-    for idx, file_path in enumerate(paths_list):
+    #    파일 형식별로 parse
+    for file_path in paths_list:
         if file_path.endswith(".docx"):
             doc = Document(**parse_word(file_path))
             doc.doc_type = "word"
+            docs_list.append(doc)
         elif file_path.endswith(".pdf"):
             doc = Document(**parse_pdf(file_path))
             doc.doc_type = "pdf"
-        # doc_id는 아직 설정하지 않고, docs_list에 넣어둠
-        docs_list.append(doc)
+            docs_list.append(doc)
+        elif file_path.endswith("mbox"):
+            # parse_mbox()는 여러 메일(Document)들을 반환하므로 반복 처리
+            mbox_docs = parse_mbox(file_path)
+            for d in mbox_docs:
+                d.doc_type = "mbox"
+                docs_list.append(d)
 
     # 4. chunk files
     for doc in docs_list:
@@ -93,9 +103,11 @@ def upload(db_path: str, recreate: bool = False, dev: bool = True):
             doc.chunk_list = chunk_word(doc)
         elif doc.doc_type == "pdf":
             doc.chunk_list = chunk_pdf(doc)
+        elif doc.doc_type == "mbox":
+            # 단순 텍스트를 chunking
+            doc.chunk_list = chunk_text(doc)
 
     # 5. 문서별로 doc_id 할당
-    #    next_doc_id_start부터 1씩 증가
     for i, doc in enumerate(docs_list):
         doc.doc_id = next_doc_id_start + i
 
@@ -111,6 +123,8 @@ def upload(db_path: str, recreate: bool = False, dev: bool = True):
         for start_idx in range(0, total_chunks, EMBED_BATCH_SIZE):
             batch = doc_chunk_pairs[start_idx : start_idx + EMBED_BATCH_SIZE]
 
+            breakpoint()
+
             # (a) 임베딩 생성
             embedding_tasks = [async_openai_embedding(chunk.body) for (_, chunk) in batch]
             embedding_results = asyncio.run(async_wrapper(embedding_tasks))
@@ -118,6 +132,8 @@ def upload(db_path: str, recreate: bool = False, dev: bool = True):
             # (a-1) 요약 생성
             summary_tasks = [async_run_gpt(chunk.body, "make_summary.json", str_struct) for (_, chunk) in batch]
             summary_results = asyncio.run(async_wrapper(summary_tasks))
+
+            breakpoint()
 
             # (b) PointStruct 리스트 만들기
             batch_points = []
@@ -161,13 +177,13 @@ def upload(db_path: str, recreate: bool = False, dev: bool = True):
                     )
                     pbar.update(len(small_batch))
 
+
 if __name__ == "__main__":
     # 예시 실행
     # 1) recreate=True => 컬렉션 재생성, 그리고 업로드
     #    이 경우에도 ID는 항상 0부터 다시 시작
-    #    (만약 collection 재생성 시 max_id는 어차피 0)
     # upload(db_path="db/uploaded", recreate=True, dev=False)
 
     # 2) update => 이미 컬렉션에 데이터가 있는 경우
     #    새로 업로드될 문서들의 doc_id는 기존 max_id // 1000 + 1부터
-    upload(db_path="db/staged", recreate=False, dev=False)
+    upload(db_path="/Users/huhchaewon/data/ 2.mbox", recreate=False, dev=False)

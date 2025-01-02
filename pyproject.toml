@@ -19,6 +19,8 @@ tqdm = "^4.67.1"
 boto3 = "^1.35.90"
 botocore = "^1.35.90"
 qdrant-client = "^1.12.2"
+mailbox = "^0.4"
+bs4 = "^0.0.2"
 
 
 [build-system]

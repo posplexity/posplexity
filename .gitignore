@@ -174,3 +174,4 @@ cython_debug/
 db/
 .DS_Store
 *.pyc
+bin/

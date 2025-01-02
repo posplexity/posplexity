@@ -28,9 +28,9 @@ def setup_sidebar():
     # 예시 질문 
     with st.sidebar.expander("ℹ️ 예시 질문", expanded=True):
         example_questions = [
-            "포스텍에 볼링 동아리가 있나요?",
-            "새터 기간동안 술을 마셔도 괜찮나요?",
-            "밥약이 무슨 뜻인가요?",
+            "교내에 셔틀버스가 다니나요?",
+            "기숙사(생활관) 비용은 어느정도인가요?",
+            "교내 자전거 대여 서비스가 존재하나요?",
         ]
         for question in example_questions:
             if st.button(question):
@@ -59,15 +59,24 @@ def setup_sidebar():
             [**정찬희**](https://www.linkedin.com/in/%EC%B0%AC%ED%9D%AC-%EC%A0%95-b6506b328/)(포스텍 24)
         """)
 
+    with st.sidebar.expander("📃 릴리즈 노트", expanded=False):
+        st.markdown("""
+            ### 2025.01.02
+            - 릴리즈 노트 추가
+            - 2024 교내 회보 메일 DB 추가
+            - 모델 변경 (Gemini 2.0 Flash Exp)
+            - UI 개선
+                    
+            ### 2024.12.31
+            - 초기 릴리즈
+                    
+            [Full notes](https://chaewonhuh.notion.site/Release-notes-16f60dcdee58809ea7f9de60e31d0995?pvs=4)
+        """)
+
 
 def setup_page():
     """메인 페이지(본문) 설정을 담당. 타이틀, 부가 문구 등을 표시."""
 
-    # Postech logo
-    # st.image(
-    #     "data/assets/postech/postech_logo.svg",
-    #     use_container_width=True
-    # )
     st.title("포스텍 2025 입학을 축하합니다!")
     st.caption("powered by P13")
 
@@ -90,10 +99,22 @@ if "messages" not in st.session_state:
         }
     ]
 
+# --- 아바타 경로(혹은 URL) 설정 ---
+USER_AVATAR = "data/assets/postech/baby_ponix.png"
+ASSISTANT_AVATAR = "data/assets/postech/ponix_official.png"
+
 # 과거 대화 출력
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    role = message["role"]
+    content = message["content"]
+
+    if role == "assistant":
+        with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
+            st.markdown(content)
+    else:
+        # 이 예시에서는 user 외에 system 같은 role도 동일하게 user 아바타로 처리
+        with st.chat_message("user", avatar=USER_AVATAR):
+            st.markdown(content)
 
 # 예시 질문 처리 / user_input
 prompt = None
@@ -107,12 +128,12 @@ if user_input:
 
 if prompt:
     # 사용자 메시지 표시
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar=USER_AVATAR):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     # 코어 로직 호출
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
         try:
             final_response = get_response(
                 prompt=prompt,
@@ -124,5 +145,9 @@ if prompt:
                 "role": "assistant",
                 "content": final_response
             })
+
+            # 방금 생성된 assistant 메시지의 본문도 표시
+            st.markdown(final_response)
+
         except Exception as e:
             st.error(f"오류가 발생했습니다: {str(e)}")

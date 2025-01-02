@@ -62,6 +62,17 @@ def setup_sidebar():
             [**정찬희**](https://www.linkedin.com/in/%EC%B0%AC%ED%9D%AC-%EC%A0%95-b6506b328/)(포스텍 24)
         """)
 
+    with st.sidebar.expander("📃 릴리즈 노트", expanded=False):
+        st.markdown("""
+            ### 2025.01.02
+            - 릴리즈 노트 추가
+                    
+            ### 2024.12.31
+            - 초기 릴리즈
+                    
+            [Full notes](https://chaewonhuh.notion.site/Release-notes-16f60dcdee58809ea7f9de60e31d0995?pvs=4)
+        """)
+
 
 def setup_page():
     """메인 페이지(본문) 설정을 담당. 타이틀, 부가 문구 등을 표시."""

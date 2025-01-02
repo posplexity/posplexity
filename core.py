@@ -1,16 +1,35 @@
 import streamlit as st
+import asyncio, time
 from src.llm.gpt.inference import run_gpt
-from src.llm.deepseek.inference import run_deepseek_stream
+from src.llm.gemini.inference import run_gemini_stream
 from src.search.search import search
 from common.types import intlist_struct, str_struct
-import asyncio
 from common.config import COLLECTION_NAME
+
+
+def stream_caption(placeholder, text: str, delay: float = 0.05):
+    """
+    text를 한 글자씩 순차적으로 placeholder.caption()을 통해 업데이트 (가짜 스트리밍).
+    """
+    displayed_text = ""
+    for char in text:
+        displayed_text += char
+        placeholder.caption(displayed_text)
+        time.sleep(delay)
+
+def chunk_text_in_subchunks(text: str, chunk_size: int = 10):
+    """
+    text를 chunk_size 글자씩 잘라서 yield 해주는 간단한 제너레이터
+    """
+    for i in range(0, len(text), chunk_size):
+        yield text[i:i+chunk_size]
+
 
 def get_response(
     prompt: str,
     messages: list,
     name_source_mapping: dict,
-    top_k: int = 20,
+    top_k: int = 30,
     refinement_model: str = "gpt-4o-mini",
     reranking_model: str = "gpt-4o-2024-08-06",
     branch: str = "postech"
@@ -18,20 +37,23 @@ def get_response(
     """
     RAG + LLM 전체 로직을 처리해 최종 답변 문자열을 반환
     
-    1. Query Refinement (gpt-4o-mini)
-    2. RAG 검색 (search)
-    3. Re-ranking (gpt-4o-2024-08-06)
-    4. 최종 RAG 컨텍스트 구성 후 LLM 스트리밍 (deepseek-chat)
+    1. Query Refinement
+    2. RAG 검색
+    3. Re-ranking
+    4. 최종 RAG 컨텍스트 구성 후 LLM 스트리밍 (Gemini)
     """
     try:
-        # 1. Query Refinement
-        with st.spinner("질의를 정제 중입니다..."):
-            refinement = run_gpt(
-                target_prompt=str(prompt),
-                prompt_in_path="query_refinement.json",
-                gpt_model=refinement_model,
-                output_structure=str_struct
-            )
+        # (1) Query Refinement
+        start_time = time.time()
+        refinement_placeholder = st.empty()
+        stream_caption(refinement_placeholder, "질의를 정제 중입니다...", 0.01)
+        
+        refinement = run_gpt(
+            target_prompt=str(prompt),
+            prompt_in_path="query_refinement.json",
+            gpt_model=refinement_model,
+            output_structure=str_struct
+        )
         refined_prompt = refinement.output
 
         # 대화 히스토리 정리
@@ -44,31 +66,39 @@ def get_response(
             elif role == "assistant":
                 history_text += f"Assistant: {content}\n"
 
-        # 2. RAG 검색
+        # (2) RAG 검색
+        stream_caption(refinement_placeholder, "문서를 탐색 중입니다...", 0.01)
         collection_name = COLLECTION_NAME[branch]["prod"]
-        with st.spinner("문서를 조회 중입니다..."):
-            found_chunks = search(collection_name=collection_name, user_query=refined_prompt, top_k=top_k, dev=False)
+        found_chunks = search(
+            collection_name=collection_name, 
+            user_query=refined_prompt, 
+            top_k=top_k, 
+            dev=False
+        )
 
-        # 3. Re-ranking
+        # (3) Re-ranking
+        stream_caption(refinement_placeholder, "문서를 재정렬 중입니다...", 0.01)
         chunk_dict = {
             c["id"]: (c["doc_title"], c["summary"])
             for c in found_chunks
         }
 
-        with st.spinner("문서를 재정렬 중입니다..."):
-            reranked_output = run_gpt(
-                target_prompt=str(chunk_dict),
-                prompt_in_path="reranking.json",
-                gpt_model=reranking_model,
-                output_structure=intlist_struct
-            )
+        # "답변을 생성 중입니다..." 만 표시
+        stream_caption(refinement_placeholder, "답변을 생성 중입니다...", 0.01)
+
+        reranked_output = run_gpt(
+            target_prompt=str(chunk_dict),
+            prompt_in_path="reranking.json",
+            gpt_model=reranking_model,
+            output_structure=intlist_struct
+        )
         reranked_ids = reranked_output.output
 
         filtered_chunks = [c for c in found_chunks if c["id"] in reranked_ids]
         id_to_rank = {id_: idx for idx, id_ in enumerate(reranked_ids)}
         sorted_chunks = sorted(filtered_chunks, key=lambda x: id_to_rank[x["id"]])
 
-        # 4-1. 최종 RAG 컨텍스트 구성
+        # (4) 최종 RAG 컨텍스트 구성
         context_texts = [c["raw_text"] for c in sorted_chunks]
         rag_context = "\n".join(context_texts)
         final_prompt = f"""
@@ -86,17 +116,32 @@ def get_response(
 답변:
 """
 
-        # 4-2. 최종 답변 (스트리밍)
-        return run_final_llm_stream(final_prompt, sorted_chunks, name_source_mapping, branch)
+        # (4-2) 최종 답변 스트리밍
+        # start_time을 넘겨주고, 첫 토큰이 오면 그 시점에 time_spent 계산
+        return run_final_llm_stream(
+            final_prompt=final_prompt,
+            sorted_chunks=sorted_chunks,
+            name_source_mapping=name_source_mapping,
+            branch=branch,
+            start_time=start_time,
+            refinement_placeholder=refinement_placeholder
+        )
 
     except Exception as e:
         raise Exception(f"응답 생성 중 오류가 발생했습니다: {str(e)}")
 
 
-def run_final_llm_stream(final_prompt: str, sorted_chunks: list, name_source_mapping: dict, branch:str) -> str:
+def run_final_llm_stream(
+    final_prompt: str,
+    sorted_chunks: list,
+    name_source_mapping: dict,
+    branch: str,
+    start_time: float,
+    refinement_placeholder: st.delta_generator.DeltaGenerator
+) -> str:
     """
     최종 LLM 스트리밍을 수행하고, 완료된 결과를 반환.
-    + 출처(Reference) 텍스트도 함께 구성해 반환할 수 있도록 설계 가능
+    + 첫 토큰 도착 순간 => "XX초 동안 문서 탐색" 표시 (start_time 기준)
     """
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -105,19 +150,32 @@ def run_final_llm_stream(final_prompt: str, sorted_chunks: list, name_source_map
         message_placeholder = st.empty()
         reference_placeholder = st.empty()
 
-        stream = await run_deepseek_stream(
+        stream = await run_gemini_stream(
             target_prompt=final_prompt,
             prompt_in_path="chat_basic.json"
         )
 
         full_response = ""
+        first_chunk_flag = True
+
         async for chunk in stream:
-            if chunk.choices[0].delta.content is not None:
-                full_response += chunk.choices[0].delta.content
+            content = chunk.choices[0].delta.content
+            if content is not None:
+                if first_chunk_flag:
+                    # 첫 토큰이 들어온 시점 -> 여기서 시간 측정
+                    first_chunk_flag = False
+                    time_spent = time.time() - start_time
+                    sec_spent_str = f"{int(time_spent)}초 동안 문서 탐색"
+                    # "\n" 붙여서 줄바꿈 후 출력
+                    stream_caption(refinement_placeholder, f"\n{sec_spent_str}", 0.01)
+
+                # 본문 스트리밍
+                full_response += content
                 message_placeholder.markdown(full_response)
 
-        # 출처 표시
+        # 출처 표시 (가짜 스트리밍)
         if sorted_chunks:
+            # 중복 제거
             dedup_set = set()
             for c in sorted_chunks:
                 doc_title = c.get("doc_title", "Untitled")
@@ -135,15 +193,24 @@ def run_final_llm_stream(final_prompt: str, sorted_chunks: list, name_source_map
                     else:
                         refs.append(f"- **{title}** / [링크로 이동]({source})")
                 else:
+                    truncated_source = source if len(source) <= 50 else source[:47] + "..."
                     if page is not None:
-                        refs.append(f"- **{title}** (p.{page}) / {source}")
+                        refs.append(f"- **{title}** (p.{page}) / {truncated_source}")
                     else:
-                        refs.append(f"- **{title}** / {source}")
-
+                        refs.append(f"- **{title}** / {truncated_source}")
             refs_text = "\n".join(refs)
-            reference_placeholder.markdown(
-                f"---\n**참고 자료 출처**\n\n{refs_text}\n"
-            )
+
+            # (A) 임시 Expander (펼쳐진 상태) 안에서 스트리밍
+            expander_placeholder = reference_placeholder.empty()
+            with expander_placeholder.expander("참고 자료 출처", expanded=True):
+                ref_stream_placeholder = st.empty()
+                displayed = ""
+                for subchunk in chunk_text_in_subchunks(refs_text, chunk_size=8):
+                    displayed += subchunk
+                    ref_stream_placeholder.markdown(displayed)
+                    time.sleep(0.01)
+                time.sleep(0.2)
+
 
         return full_response
 
