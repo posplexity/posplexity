@@ -147,7 +147,7 @@ if prompt:
             })
 
             # 방금 생성된 assistant 메시지의 본문도 표시
-            st.markdown(final_response)
+            # st.markdown(final_response)
 
         except Exception as e:
             st.error(f"오류가 발생했습니다: {str(e)}")
