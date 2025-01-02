@@ -12,6 +12,7 @@ except RuntimeError:
 
 name_source_mapping = json.load(open("data/mapping.json", "r"))
 
+
 def setup_sidebar():
     """사이드바 UI 구성"""
 
@@ -78,7 +79,7 @@ def setup_page():
     """메인 페이지(본문) 설정을 담당. 타이틀, 부가 문구 등을 표시."""
 
     st.title("포스텍 2025 입학을 축하합니다!")
-    st.caption("powered by P13")
+    st.caption("powered by posplexity")
 
 
 # Streamlit Settings
@@ -87,19 +88,27 @@ st.set_page_config(page_title="Posplexity", layout="wide")
 setup_sidebar()
 setup_page()
 
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+
 # Default messages
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
             "role": "assistant",
             "content": (
-                "안녕하세요! 저는 POSTECH 새내기 여러분을 도와드리는 챗봇입니다.\n"
+                "안녕하세요! 저는 POSTECH 새내기 여러분을 도와드리는 포닉스입니다.\n"
                 "무엇이든 궁금한 점이 있다면 편하게 물어보세요."
             )
         }
     ]
 
-# --- 아바타 경로(혹은 URL) 설정 ---
+
 USER_AVATAR = "data/assets/postech/baby_ponix.png"
 ASSISTANT_AVATAR = "data/assets/postech/ponix_official.png"
 
